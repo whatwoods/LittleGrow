@@ -143,6 +143,12 @@ class MainViewModel(
         initialValue = true,
     )
 
+    val onboardingCompleted: StateFlow<Boolean> = repository.onboardingCompleted.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = true,
+    )
+
     val currentRecordTab: StateFlow<RecordTab> = selectedRecordTab.asStateFlow()
     val exportMessage: StateFlow<String?> = _exportMessage.asStateFlow()
     val isExporting: StateFlow<Boolean> = _isExporting.asStateFlow()
@@ -192,7 +198,9 @@ class MainViewModel(
 
     init {
         viewModelScope.launch {
-            if (repository.profile.first() == null) {
+            val hasProfile = repository.profile.first() != null
+            val hasOnboarded = repository.onboardingCompleted.first()
+            if (!hasProfile && hasOnboarded) {
                 repository.seedIfNeeded()
             }
             refreshVaccineReminders()
@@ -416,6 +424,15 @@ class MainViewModel(
         mutateData(refreshReminders = true) {
             repository.setVaccineStatus(scheduleKey, isDone)
         }
+    }
+
+    fun completeOnboarding(profile: BabyProfile?) {
+        if (profile != null) {
+            mutateData(refreshReminders = true) {
+                repository.saveProfile(profile)
+            }
+        }
+        repository.setOnboardingCompleted()
     }
 
     fun setThemeMode(mode: ThemeMode) {

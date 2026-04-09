@@ -24,6 +24,7 @@ class LittleGrowRepository(
     val vaccines: Flow<List<VaccineEntity>> = database.vaccineDao().observeAll()
     val themeMode: Flow<ThemeMode> = preferencesRepository.themeMode
     val vaccineRemindersEnabled: Flow<Boolean> = preferencesRepository.vaccineRemindersEnabled
+    val onboardingCompleted: Flow<Boolean> = preferencesRepository.onboardingCompleted
 
     suspend fun saveProfile(profile: BabyProfile) {
         database.babyDao().upsertProfile(
@@ -223,6 +224,10 @@ class LittleGrowRepository(
 
     fun setVaccineRemindersEnabled(enabled: Boolean) {
         preferencesRepository.setVaccineRemindersEnabled(enabled)
+    }
+
+    fun setOnboardingCompleted() {
+        preferencesRepository.setOnboardingCompleted()
     }
 
     suspend fun syncVaccinesForBirthday(birthday: LocalDate) {

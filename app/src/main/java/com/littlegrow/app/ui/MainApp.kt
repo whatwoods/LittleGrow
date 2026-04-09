@@ -21,6 +21,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.littlegrow.app.ui.screens.GrowthScreen
 import com.littlegrow.app.ui.screens.HomeScreen
+import com.littlegrow.app.ui.screens.OnboardingScreen
 import com.littlegrow.app.ui.screens.RecordsScreen
 import com.littlegrow.app.ui.screens.SettingsScreen
 import com.littlegrow.app.ui.screens.TimelineScreen
@@ -66,6 +67,7 @@ fun LittleGrowApp(
     val breastfeedingTimer by viewModel.breastfeedingTimer.collectAsStateWithLifecycle()
     val pendingDestination by viewModel.pendingDestination.collectAsStateWithLifecycle()
     val pendingQuickAction by viewModel.pendingRecordQuickAction.collectAsStateWithLifecycle()
+    val onboardingCompleted by viewModel.onboardingCompleted.collectAsStateWithLifecycle()
 
     LaunchedEffect(pendingDestination) {
         val destination = pendingDestination ?: return@LaunchedEffect
@@ -77,6 +79,13 @@ fun LittleGrowApp(
     }
 
     LittleGrowTheme(themeMode = themeMode) {
+        if (!onboardingCompleted) {
+            OnboardingScreen(
+                onComplete = { profile -> viewModel.completeOnboarding(profile) },
+            )
+            return@LittleGrowTheme
+        }
+
         Scaffold(
             bottomBar = {
                 NavigationBar {

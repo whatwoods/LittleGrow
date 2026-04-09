@@ -3,13 +3,66 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- Soft shadow under the head -->
+    <path
+        android:fillColor="#1A000000"
+        android:pathData="M 54 87 C 36 87 22 73 22 55 C 22 37 36 23 54 23 C 72 23 86 37 86 55 C 86 73 72 87 54 87 Z" />
+
+    <!-- Head filled with white -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,77.4l-6.53,-5.95C31.8,57.12 22,48.22 22,37.3 22,28.4 28.9,21.5 37.8,21.5c5.02,0 9.83,2.34 12.95,6.01 3.12,-3.67 7.93,-6.01 12.95,-6.01C72.6,21.5 79.5,28.4 79.5,37.3c0,10.92 -9.8,19.82 -25.47,34.15L54,77.4z" />
+        android:pathData="M 54 84 C 36 84 22 70 22 52 C 22 34 36 20 54 20 C 72 20 86 34 86 52 C 86 70 72 84 54 84 Z" />
+
+    <!-- Head border in primary green -->
     <path
-        android:fillColor="#1F6A5A"
-        android:pathData="M64,26c0,-7.73 6.27,-14 14,-14 -0.08,7.74 -6.34,14 -14,14z" />
+        android:strokeColor="#6FA58B"
+        android:strokeWidth="3"
+        android:fillColor="#00000000"
+        android:pathData="M 54 84 C 36 84 22 70 22 52 C 22 34 36 20 54 20 C 72 20 86 34 86 52 C 86 70 72 84 54 84 Z" />
+
+    <!-- Sprout (Right Leaf) -->
     <path
-        android:fillColor="#2F8A73"
-        android:pathData="M56,30c0,-9.39 7.61,-17 17,-17 -0.09,9.41 -7.69,17 -17,17z" />
+        android:fillColor="#6FA58B"
+        android:pathData="M 54 20 C 54 6 72 6 72 16 C 68 20 58 20 54 20 Z" />
+    
+    <!-- Sprout (Left Leaf) -->
+    <path
+        android:fillColor="#8BB7D8"
+        android:pathData="M 54 20 C 54 10 40 10 40 18 C 45 20 50 20 54 20 Z" />
+
+    <!-- Left eye (Happy curve) -->
+    <path
+        android:strokeColor="#5C564E"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M 38 46 Q 43 40 48 46" />
+
+    <!-- Right eye (Happy curve) -->
+    <path
+        android:strokeColor="#5C564E"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M 60 46 Q 65 40 70 46" />
+
+    <!-- Left Cheek -->
+    <path
+        android:fillColor="#FFC8C8"
+        android:pathData="M 40 55 A 4 4 0 1 1 32 55 A 4 4 0 1 1 40 55 Z" />
+
+    <!-- Right Cheek -->
+    <path
+        android:fillColor="#FFC8C8"
+        android:pathData="M 76 55 A 4 4 0 1 1 68 55 A 4 4 0 1 1 76 55 Z" />
+
+    <!-- Mouth -->
+    <path
+        android:strokeColor="#5C564E"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M 48 58 Q 54 66 60 58" />
+
 </vector>

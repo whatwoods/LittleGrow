@@ -2,24 +2,24 @@ package com.littlegrow.app
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoGraph
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Timeline
 import androidx.compose.material.icons.rounded.Today
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import com.littlegrow.app.ui.screens.QuickRecordSheet
-import com.littlegrow.app.ui.theme.softShadow
-import androidx.compose.material3.Scaffold
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,7 +36,9 @@ import com.littlegrow.app.ui.screens.OnboardingScreen
 import com.littlegrow.app.ui.screens.RecordsScreen
 import com.littlegrow.app.ui.screens.SettingsScreen
 import com.littlegrow.app.ui.screens.TimelineScreen
+import com.littlegrow.app.ui.screens.QuickRecordSheet
 import com.littlegrow.app.ui.theme.LittleGrowTheme
+import com.littlegrow.app.ui.theme.softShadow
 
 private data class TopLevelDestination(
     val destination: AppDestination,
@@ -78,7 +80,7 @@ fun LittleGrowApp(
     val breastfeedingTimer by viewModel.breastfeedingTimer.collectAsStateWithLifecycle()
     val pendingDestination by viewModel.pendingDestination.collectAsStateWithLifecycle()
     val pendingQuickAction by viewModel.pendingRecordQuickAction.collectAsStateWithLifecycle()
-    val onboardingCompleted by viewModel.onboardingCompleted.collectAsStateWithLifecycle()
+    val launchState by viewModel.launchState.collectAsStateWithLifecycle()
     var showQuickRecordSheet by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(pendingDestination) {
@@ -91,17 +93,29 @@ fun LittleGrowApp(
     }
 
     LittleGrowTheme(themeMode = themeMode) {
-        if (!onboardingCompleted) {
-            OnboardingScreen(
-                onComplete = { profile -> viewModel.completeOnboarding(profile) },
-            )
-            return@LittleGrowTheme
+        when (launchState) {
+            AppLaunchState.LOADING -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
+                return@LittleGrowTheme
+            }
+
+            AppLaunchState.ONBOARDING -> {
+                OnboardingScreen(onComplete = viewModel::completeOnboarding)
+                return@LittleGrowTheme
+            }
+
+            AppLaunchState.READY -> Unit
         }
 
         if (showQuickRecordSheet) {
             QuickRecordSheet(
                 viewModel = viewModel,
-                onDismiss = { showQuickRecordSheet = false }
+                onDismiss = { showQuickRecordSheet = false },
             )
         }
 
@@ -110,9 +124,9 @@ fun LittleGrowApp(
                 FloatingActionButton(
                     onClick = { showQuickRecordSheet = true },
                     modifier = Modifier.softShadow(),
-                    shape = androidx.compose.material3.MaterialTheme.shapes.large
+                    shape = androidx.compose.material3.MaterialTheme.shapes.large,
                 ) {
-                    Icon(Icons.Rounded.Add, contentDescription = "Add Record")
+                    Icon(Icons.Rounded.Add, contentDescription = "添加记录")
                 }
             },
             bottomBar = {

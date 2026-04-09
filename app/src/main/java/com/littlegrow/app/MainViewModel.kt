@@ -59,6 +59,12 @@ data class BreastfeedingTimerState(
     val isRunning: Boolean = activeType != null && startedAtEpochMillis != null
 }
 
+enum class AppLaunchState {
+    LOADING,
+    ONBOARDING,
+    READY,
+}
+
 class MainViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
@@ -74,6 +80,7 @@ class MainViewModel(
     private val _breastfeedingTimer = MutableStateFlow(BreastfeedingTimerState())
     private val _pendingDestination = MutableStateFlow<AppDestination?>(null)
     private val _pendingRecordQuickAction = MutableStateFlow<RecordQuickAction?>(null)
+    private val _launchState = MutableStateFlow(AppLaunchState.LOADING)
 
     val themeMode: StateFlow<ThemeMode> = repository.themeMode.stateIn(
         scope = viewModelScope,
@@ -143,18 +150,13 @@ class MainViewModel(
         initialValue = true,
     )
 
-    val onboardingCompleted: StateFlow<Boolean> = repository.onboardingCompleted.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = true,
-    )
-
     val currentRecordTab: StateFlow<RecordTab> = selectedRecordTab.asStateFlow()
     val exportMessage: StateFlow<String?> = _exportMessage.asStateFlow()
     val isExporting: StateFlow<Boolean> = _isExporting.asStateFlow()
     val breastfeedingTimer: StateFlow<BreastfeedingTimerState> = _breastfeedingTimer.asStateFlow()
     val pendingDestination: StateFlow<AppDestination?> = _pendingDestination.asStateFlow()
     val pendingRecordQuickAction: StateFlow<RecordQuickAction?> = _pendingRecordQuickAction.asStateFlow()
+    val launchState: StateFlow<AppLaunchState> = _launchState.asStateFlow()
 
     val homeSummary: StateFlow<HomeSummary> = combine(
         profile,
@@ -200,8 +202,22 @@ class MainViewModel(
         viewModelScope.launch {
             val hasProfile = repository.profile.first() != null
             val hasOnboarded = repository.onboardingCompleted.first()
-            if (!hasProfile && hasOnboarded) {
-                repository.seedIfNeeded()
+            when {
+                hasProfile -> {
+                    if (!hasOnboarded) {
+                        repository.setOnboardingCompleted()
+                    }
+                    _launchState.value = AppLaunchState.READY
+                }
+
+                hasOnboarded -> {
+                    repository.seedIfNeeded()
+                    _launchState.value = AppLaunchState.READY
+                }
+
+                else -> {
+                    _launchState.value = AppLaunchState.ONBOARDING
+                }
             }
             refreshVaccineReminders()
             refreshWidgets()
@@ -426,13 +442,14 @@ class MainViewModel(
         }
     }
 
-    fun completeOnboarding(profile: BabyProfile?) {
-        if (profile != null) {
-            mutateData(refreshReminders = true) {
-                repository.saveProfile(profile)
-            }
+    fun completeOnboarding(profile: BabyProfile) {
+        viewModelScope.launch {
+            repository.saveProfile(profile)
+            repository.setOnboardingCompleted()
+            _launchState.value = AppLaunchState.READY
+            refreshVaccineReminders()
+            refreshWidgets()
         }
-        repository.setOnboardingCompleted()
     }
 
     fun setThemeMode(mode: ThemeMode) {

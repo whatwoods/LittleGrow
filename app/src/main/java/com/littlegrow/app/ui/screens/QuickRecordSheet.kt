@@ -22,11 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.littlegrow.app.MainViewModel
 import com.littlegrow.app.data.RecordTab
-import com.littlegrow.app.data.FeedingDraft
-import com.littlegrow.app.data.SleepDraft
-import com.littlegrow.app.data.DiaperDraft
-import com.littlegrow.app.data.MedicalDraft
-import com.littlegrow.app.data.ActivityDraft
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,20 +63,21 @@ fun QuickRecordSheet(
                     QuickActionCard("活动记录", Modifier.weight(1f)) { selectedTab = RecordTab.ACTIVITY }
                 }
             } else {
+                val currentTab = requireNotNull(selectedTab)
                 Text(
-                    text = selectedTab!!.label,
+                    text = currentTab.label,
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                when (selectedTab) {
+                when (currentTab) {
                     RecordTab.FEEDING -> AddFeedingForm(
                         initial = null,
                         onSubmit = { draft ->
                             viewModel.addFeeding(draft)
                             onDismiss()
                         },
-                        onCancel = { selectedTab = null }
+                        onCancel = { selectedTab = null },
                     )
                     RecordTab.SLEEP -> AddSleepForm(
                         initial = null,
@@ -89,7 +85,7 @@ fun QuickRecordSheet(
                             viewModel.addSleep(draft)
                             onDismiss()
                         },
-                        onCancel = { selectedTab = null }
+                        onCancel = { selectedTab = null },
                     )
                     RecordTab.DIAPER -> AddDiaperForm(
                         initial = null,
@@ -97,7 +93,7 @@ fun QuickRecordSheet(
                             viewModel.addDiaper(draft)
                             onDismiss()
                         },
-                        onCancel = { selectedTab = null }
+                        onCancel = { selectedTab = null },
                     )
                     RecordTab.MEDICAL -> AddMedicalForm(
                         initial = null,
@@ -105,7 +101,7 @@ fun QuickRecordSheet(
                             viewModel.addMedical(draft)
                             onDismiss()
                         },
-                        onCancel = { selectedTab = null }
+                        onCancel = { selectedTab = null },
                     )
                     RecordTab.ACTIVITY -> AddActivityForm(
                         initial = null,
@@ -113,9 +109,8 @@ fun QuickRecordSheet(
                             viewModel.addActivity(draft)
                             onDismiss()
                         },
-                        onCancel = { selectedTab = null }
+                        onCancel = { selectedTab = null },
                     )
-                    null -> {}
                 }
             }
         }

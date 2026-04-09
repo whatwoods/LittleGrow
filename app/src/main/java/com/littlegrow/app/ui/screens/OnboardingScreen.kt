@@ -77,7 +77,7 @@ private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
 @Composable
 fun OnboardingScreen(
-    onComplete: (BabyProfile?) -> Unit,
+    onComplete: (BabyProfile) -> Unit,
 ) {
     val pagerState = rememberPagerState(pageCount = { TOTAL_PAGES })
     val scope = rememberCoroutineScope()

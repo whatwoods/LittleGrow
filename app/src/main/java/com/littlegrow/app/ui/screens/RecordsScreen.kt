@@ -18,11 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -206,24 +203,6 @@ fun RecordsScreen(
             }
         }
 
-        FloatingActionButton(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(
-                    end = 20.dp,
-                    bottom = contentPadding.calculateBottomPadding() + 20.dp,
-                ),
-            onClick = {
-                editingFeeding = null
-                editingSleep = null
-                editingDiaper = null
-                editingMedical = null
-                editingActivity = null
-                showAddDialog = true
-            },
-        ) {
-            androidx.compose.material3.Icon(Icons.Rounded.Add, contentDescription = "添加记录")
-        }
     }
 
     if (showTimerStarter) {

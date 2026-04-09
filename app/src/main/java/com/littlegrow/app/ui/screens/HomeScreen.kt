@@ -7,6 +7,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.Card
+import com.littlegrow.app.ui.theme.softShadow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AssistChip
@@ -49,31 +55,42 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            ElevatedCard(
-                colors = CardDefaults.elevatedCardColors(
+            Card(
+                modifier = Modifier.softShadow(),
+                colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                 ),
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(
-                        text = summary.profile?.name ?: "欢迎来到长呀长",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .background(MaterialTheme.colorScheme.surface, CircleShape)
                     )
-                    Text(
-                        text = summary.ageText,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "离线记录照护节奏，把每天的成长留在本地。",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = summary.profile?.name ?: "欢迎来到长呀长",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = summary.ageText,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = "把每天的成长留在本地",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                 }
             }
         }
@@ -201,7 +218,10 @@ private fun SummaryCard(
     subtitle: String,
     modifier: Modifier = Modifier,
 ) {
-    ElevatedCard(modifier = modifier) {
+    androidx.compose.material3.Card(
+        modifier = modifier.softShadow(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -232,7 +252,7 @@ private fun QuickActionChip(
 
 @Composable
 private fun HomeFeedingCard(feeding: FeedingEntity) {
-    ElevatedCard {
+    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -256,7 +276,7 @@ private fun HomeFeedingCard(feeding: FeedingEntity) {
 
 @Composable
 private fun HomeSleepCard(sleep: SleepEntity) {
-    ElevatedCard {
+    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -278,7 +298,7 @@ private fun HomeSleepCard(sleep: SleepEntity) {
 
 @Composable
 private fun HomeDiaperCard(diaper: DiaperEntity) {
-    ElevatedCard {
+    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -310,7 +330,7 @@ private fun HomeDiaperCard(diaper: DiaperEntity) {
 
 @Composable
 private fun EmptyHint(text: String) {
-    ElevatedCard {
+    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
         Text(
             text = text,
             modifier = Modifier.padding(16.dp),

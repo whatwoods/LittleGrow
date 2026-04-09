@@ -21,7 +21,7 @@ private val LightColors = lightColorScheme(
     tertiary = Color(0xFFF4BB6A),
     tertiaryContainer = Color(0xFFFFE7C3),
     background = Color(0xFFFFFBF6),
-    surface = Color(0xFFFFFBF6),
+    surface = Color.White,
     surfaceVariant = Color(0xFFF6EFE7),
     onSurfaceVariant = Color(0xFF5C564E),
 )
@@ -35,7 +35,7 @@ private val DarkColors = darkColorScheme(
     tertiary = Color(0xFFF1C98D),
     tertiaryContainer = Color(0xFF684B1B),
     background = Color(0xFF151312),
-    surface = Color(0xFF151312),
+    surface = Color(0xFF1E1C1B),
     surfaceVariant = Color(0xFF2D2925),
     onSurfaceVariant = Color(0xFFD4C5B7),
 )
@@ -62,6 +62,7 @@ fun LittleGrowTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = Shapes,
         content = content,
     )
 }

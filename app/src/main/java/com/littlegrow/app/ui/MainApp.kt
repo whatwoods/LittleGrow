@@ -8,6 +8,17 @@ import androidx.compose.material.icons.rounded.Timeline
 import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import com.littlegrow.app.ui.screens.QuickRecordSheet
+import com.littlegrow.app.ui.theme.softShadow
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -68,6 +79,7 @@ fun LittleGrowApp(
     val pendingDestination by viewModel.pendingDestination.collectAsStateWithLifecycle()
     val pendingQuickAction by viewModel.pendingRecordQuickAction.collectAsStateWithLifecycle()
     val onboardingCompleted by viewModel.onboardingCompleted.collectAsStateWithLifecycle()
+    var showQuickRecordSheet by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(pendingDestination) {
         val destination = pendingDestination ?: return@LaunchedEffect
@@ -86,7 +98,23 @@ fun LittleGrowApp(
             return@LittleGrowTheme
         }
 
+        if (showQuickRecordSheet) {
+            QuickRecordSheet(
+                viewModel = viewModel,
+                onDismiss = { showQuickRecordSheet = false }
+            )
+        }
+
         Scaffold(
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = { showQuickRecordSheet = true },
+                    modifier = Modifier.softShadow(),
+                    shape = androidx.compose.material3.MaterialTheme.shapes.large
+                ) {
+                    Icon(Icons.Rounded.Add, contentDescription = "Add Record")
+                }
+            },
             bottomBar = {
                 NavigationBar {
                     topLevelDestinations.forEach { destination ->
@@ -216,3 +244,4 @@ fun LittleGrowApp(
         }
     }
 }
+

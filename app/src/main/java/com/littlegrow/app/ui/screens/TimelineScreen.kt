@@ -32,6 +32,7 @@ import com.littlegrow.app.data.BabyProfile
 import com.littlegrow.app.data.MilestoneCategory
 import com.littlegrow.app.data.MilestoneDraft
 import com.littlegrow.app.data.MilestoneEntity
+import com.littlegrow.app.ui.NativeDatePickerField
 import com.littlegrow.app.ui.PhotoActionRow
 import com.littlegrow.app.ui.PhotoPreviewCard
 import com.littlegrow.app.ui.dateFormatter
@@ -197,13 +198,13 @@ private fun AddMilestoneDialog(
                     singleLine = true,
                 )
                 FilterChipSection("类别", MilestoneCategory.entries, category, { it.label }) { category = it }
-                OutlinedTextField(
+                NativeDatePickerField(
                     value = date,
                     onValueChange = { date = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("达成日期") },
-                    supportingText = { Text("格式：yyyy-MM-dd") },
-                    singleLine = true,
+                    label = "达成日期",
+                    supportingText = "点击选择日期",
+                    maxDate = LocalDate.now(),
                 )
                 photoPath?.let {
                     PhotoPreviewCard(filePath = it, contentDescription = "里程碑照片预览")
@@ -231,8 +232,8 @@ private fun AddMilestoneDialog(
                     val parsedDate = runCatching { LocalDate.parse(date.trim(), dateFormatter) }.getOrNull()
                     if (title.isBlank()) {
                         errorText = "里程碑标题不能为空。"
-                    } else if (parsedDate == null) {
-                        errorText = "日期格式不对，请使用 yyyy-MM-dd。"
+                    } else if (date.isBlank() || parsedDate == null) {
+                        errorText = "请选择达成日期。"
                     } else {
                         photoAttachment.commitChanges()
                         onSubmit(

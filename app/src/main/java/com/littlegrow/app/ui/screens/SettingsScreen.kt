@@ -36,6 +36,7 @@ import com.littlegrow.app.BuildConfig
 import com.littlegrow.app.data.BabyProfile
 import com.littlegrow.app.data.Gender
 import com.littlegrow.app.data.ThemeMode
+import com.littlegrow.app.ui.NativeDatePickerField
 import com.littlegrow.app.ui.dateFormatter
 import java.time.LocalDate
 
@@ -225,13 +226,13 @@ fun SettingsScreen(
                         label = { Text("昵称") },
                         singleLine = true,
                     )
-                    OutlinedTextField(
+                    NativeDatePickerField(
                         value = birthday,
                         onValueChange = { birthday = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("生日") },
-                        supportingText = { Text("格式：yyyy-MM-dd") },
-                        singleLine = true,
+                        label = "生日",
+                        supportingText = "点击选择日期",
+                        maxDate = LocalDate.now(),
                     )
                     FilterChipSection(
                         title = "性别",
@@ -250,8 +251,8 @@ fun SettingsScreen(
                                 errorText = "昵称不能为空。"
                                 return@ElevatedButton
                             }
-                            if (parsedBirthday == null) {
-                                errorText = "生日格式不对，请使用 yyyy-MM-dd。"
+                            if (birthday.isBlank() || parsedBirthday == null) {
+                                errorText = "请选择生日。"
                                 return@ElevatedButton
                             }
                             errorText = null

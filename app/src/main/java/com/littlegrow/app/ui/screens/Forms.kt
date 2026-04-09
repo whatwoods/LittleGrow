@@ -38,6 +38,8 @@ import com.littlegrow.app.data.PoopColor
 import com.littlegrow.app.data.PoopTexture
 import com.littlegrow.app.data.SleepDraft
 import com.littlegrow.app.data.SleepEntity
+import com.littlegrow.app.ui.NativeDateTimePickerField
+import com.littlegrow.app.ui.NativeDurationPickerField
 import com.littlegrow.app.ui.PhotoActionRow
 import com.littlegrow.app.ui.PhotoPreviewCard
 import com.littlegrow.app.ui.dateTimeFormatter
@@ -74,7 +76,7 @@ fun AddFeedingForm(
     var happenedAt by rememberSaveable(initial?.id) {
         mutableStateOf(initial?.happenedAt?.format(dateTimeFormatter) ?: LocalDateTime.now().format(dateTimeFormatter))
     }
-    var durationMinutes by rememberSaveable(initial?.id) { mutableStateOf(initial?.durationMinutes?.toString() ?: "15") }
+    var durationMinutes by rememberSaveable(initial?.id) { mutableStateOf(initial?.durationMinutes ?: 15) }
     var amountMl by rememberSaveable(initial?.id) { mutableStateOf(initial?.amountMl?.toString() ?: "90") }
     var foodName by rememberSaveable(initial?.id) { mutableStateOf(initial?.foodName.orEmpty()) }
     var note by rememberSaveable(initial?.id) { mutableStateOf(initial?.note.orEmpty()) }
@@ -103,28 +105,22 @@ fun AddFeedingForm(
             label = { it.label },
             onSelect = { type = it },
         )
-        OutlinedTextField(
+        NativeDateTimePickerField(
             value = happenedAt,
             onValueChange = { happenedAt = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("发生时间") },
-            singleLine = true,
+            label = "发生时间",
+            supportingText = "点击选择日期和时间",
         )
         if (type == FeedingType.BREAST_LEFT || type == FeedingType.BREAST_RIGHT) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = durationMinutes,
-                    onValueChange = { durationMinutes = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("时长（分钟）") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                )
-                QuickInputRow { added ->
-                    val current = durationMinutes.toIntOrNull() ?: 0
-                    durationMinutes = (current + added).toString()
-                }
-            }
+            NativeDurationPickerField(
+                valueMinutes = durationMinutes,
+                onValueChange = { durationMinutes = it ?: 0 },
+                modifier = Modifier.fillMaxWidth(),
+                label = "时长",
+                supportingText = "点击选择时长",
+                initialMinutesWhenEmpty = 15,
+            )
         }
         if (type == FeedingType.BOTTLE_BREAST_MILK || type == FeedingType.BOTTLE_FORMULA) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -176,16 +172,15 @@ fun AddFeedingForm(
             Button(onClick = {
                 val happened = happenedAt.toLocalDateTimeOrNull()
                 if (happened == null) {
-                    errorText = "时间格式不对，请使用 yyyy-MM-dd HH:mm。"
+                    errorText = "请选择发生时间。"
                 } else {
                     when (type) {
                         FeedingType.BREAST_LEFT, FeedingType.BREAST_RIGHT -> {
-                            val minutes = durationMinutes.toIntOrNull()
-                            if (minutes == null || minutes <= 0) {
+                            if (durationMinutes <= 0) {
                                 errorText = "母乳记录需要有效时长。"
                             } else {
                                 photoAttachment.commitChanges()
-                                onSubmit(FeedingDraft(type, happened, minutes, null, null, null, note))
+                                onSubmit(FeedingDraft(type, happened, durationMinutes, null, null, null, note))
                             }
                         }
                         FeedingType.BOTTLE_BREAST_MILK, FeedingType.BOTTLE_FORMULA -> {
@@ -229,19 +224,19 @@ fun AddSleepForm(
     var errorText by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        OutlinedTextField(
+        NativeDateTimePickerField(
             value = startTime,
             onValueChange = { startTime = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("开始时间") },
-            singleLine = true,
+            label = "开始时间",
+            supportingText = "点击选择日期和时间",
         )
-        OutlinedTextField(
+        NativeDateTimePickerField(
             value = endTime,
             onValueChange = { endTime = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("结束时间") },
-            singleLine = true,
+            label = "结束时间",
+            supportingText = "点击选择日期和时间",
         )
         OutlinedTextField(
             value = note,
@@ -259,7 +254,7 @@ fun AddSleepForm(
                 val start = startTime.toLocalDateTimeOrNull()
                 val end = endTime.toLocalDateTimeOrNull()
                 if (start == null || end == null) {
-                    errorText = "时间格式不对，请使用 yyyy-MM-dd HH:mm。"
+                    errorText = "请选择开始和结束时间。"
                 } else if (!end.isAfter(start)) {
                     errorText = "结束时间需要晚于开始时间。"
                 } else {
@@ -287,12 +282,12 @@ fun AddDiaperForm(
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         LargeOptionSection("类型", DiaperType.entries, type, { it.label }) { type = it }
-        OutlinedTextField(
+        NativeDateTimePickerField(
             value = happenedAt,
             onValueChange = { happenedAt = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("发生时间") },
-            singleLine = true,
+            label = "发生时间",
+            supportingText = "点击选择日期和时间",
         )
         if (type == DiaperType.POOP) {
             LargeOptionSection("颜色", PoopColor.entries, selectedColor, { it.label }) { selectedColor = it }
@@ -313,7 +308,7 @@ fun AddDiaperForm(
             Button(onClick = {
                 val happened = happenedAt.toLocalDateTimeOrNull()
                 if (happened == null) {
-                    errorText = "时间格式不对，请使用 yyyy-MM-dd HH:mm。"
+                    errorText = "请选择发生时间。"
                 } else {
                     onSubmit(
                         DiaperDraft(
@@ -348,12 +343,12 @@ fun AddMedicalForm(
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         LargeOptionSection("类型", MedicalRecordType.entries, type, { it.label }) { type = it }
-        OutlinedTextField(
+        NativeDateTimePickerField(
             value = happenedAt,
             onValueChange = { happenedAt = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("发生时间") },
-            singleLine = true,
+            label = "发生时间",
+            supportingText = "点击选择日期和时间",
         )
         OutlinedTextField(
             value = title,
@@ -405,7 +400,7 @@ fun AddMedicalForm(
                 val happened = happenedAt.toLocalDateTimeOrNull()
                 val temperatureValue = temperature.trim().takeIf { it.isNotEmpty() }?.toFloatOrNull()
                 if (happened == null) {
-                    errorText = "时间格式不对，请使用 yyyy-MM-dd HH:mm。"
+                    errorText = "请选择发生时间。"
                 } else if (title.isBlank()) {
                     errorText = when (type) {
                         MedicalRecordType.ILLNESS -> "疾病记录需要填写症状或诊断。"
@@ -441,33 +436,28 @@ fun AddActivityForm(
     var happenedAt by rememberSaveable(initial?.id) {
         mutableStateOf(initial?.happenedAt?.format(dateTimeFormatter) ?: LocalDateTime.now().format(dateTimeFormatter))
     }
-    var durationMinutes by rememberSaveable(initial?.id) { mutableStateOf(initial?.durationMinutes?.toString().orEmpty()) }
+    var durationMinutes by rememberSaveable(initial?.id) { mutableStateOf(initial?.durationMinutes) }
     var note by rememberSaveable(initial?.id) { mutableStateOf(initial?.note.orEmpty()) }
     var errorText by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         LargeOptionSection("类型", ActivityType.entries, type, { it.label }) { type = it }
-        OutlinedTextField(
+        NativeDateTimePickerField(
             value = happenedAt,
             onValueChange = { happenedAt = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("发生时间") },
-            singleLine = true,
+            label = "发生时间",
+            supportingText = "点击选择日期和时间",
         )
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = durationMinutes,
-                onValueChange = { durationMinutes = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("时长（分钟，可选）") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-            )
-            QuickInputRow { added ->
-                val current = durationMinutes.toIntOrNull() ?: 0
-                durationMinutes = (current + added).toString()
-            }
-        }
+        NativeDurationPickerField(
+            valueMinutes = durationMinutes,
+            onValueChange = { durationMinutes = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = "时长（可选）",
+            supportingText = "点击选择时长",
+            allowClear = true,
+            initialMinutesWhenEmpty = 15,
+        )
         OutlinedTextField(
             value = note,
             onValueChange = { note = it },
@@ -482,13 +472,10 @@ fun AddActivityForm(
             TextButton(onClick = onCancel) { Text("取消") }
             Button(onClick = {
                 val happened = happenedAt.toLocalDateTimeOrNull()
-                val durationValue = durationMinutes.trim().takeIf { it.isNotEmpty() }?.toIntOrNull()
                 if (happened == null) {
-                    errorText = "时间格式不对，请使用 yyyy-MM-dd HH:mm。"
-                } else if (durationMinutes.isNotBlank() && durationValue == null) {
-                    errorText = "时长格式不对，请输入整数分钟。"
+                    errorText = "请选择发生时间。"
                 } else {
-                    onSubmit(ActivityDraft(happened, type, durationValue, note))
+                    onSubmit(ActivityDraft(happened, type, durationMinutes, note))
                 }
             }) { Text("保存") }
         }

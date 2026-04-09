@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.littlegrow.app.data.BabyProfile
 import com.littlegrow.app.data.Gender
 import com.littlegrow.app.ui.dateFormatter
+import com.littlegrow.app.ui.NativeDatePickerField
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -83,7 +84,7 @@ fun OnboardingScreen(
     val isLastPage = pagerState.currentPage == TOTAL_PAGES - 1
 
     var name by rememberSaveable { mutableStateOf("") }
-    var birthday by rememberSaveable { mutableStateOf("") }
+    var birthday by rememberSaveable { mutableStateOf(LocalDate.now().format(dateFormatter)) }
     var gender by rememberSaveable { mutableStateOf(Gender.BOY) }
     var errorText by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -97,8 +98,8 @@ fun OnboardingScreen(
             errorText = "请输入宝宝昵称"
             return
         }
-        if (parsedBirthday == null) {
-            errorText = "生日格式不对，请使用 yyyy-MM-dd"
+        if (birthday.isBlank() || parsedBirthday == null) {
+            errorText = "请选择生日"
             return
         }
         errorText = null
@@ -303,14 +304,13 @@ private fun ProfileSetupPage(
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        OutlinedTextField(
+        NativeDatePickerField(
             value = birthday,
             onValueChange = onBirthdayChange,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("出生日期") },
-            supportingText = { Text("格式：yyyy-MM-dd") },
-            singleLine = true,
-            shape = RoundedCornerShape(12.dp),
+            label = "出生日期",
+            supportingText = "点击选择日期",
+            maxDate = LocalDate.now(),
         )
         Spacer(modifier = Modifier.height(16.dp))
 

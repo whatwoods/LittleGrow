@@ -47,6 +47,7 @@ import com.littlegrow.app.data.GrowthEntity
 import com.littlegrow.app.data.GrowthMetric
 import com.littlegrow.app.data.VaccineEntity
 import com.littlegrow.app.data.WhoGrowthStandards
+import com.littlegrow.app.ui.NativeDatePickerField
 import com.littlegrow.app.ui.dateFormatter
 import com.littlegrow.app.ui.formatDate
 import com.littlegrow.app.ui.formatMetric
@@ -445,13 +446,13 @@ private fun AddGrowthDialog(
         title = { Text(if (initial == null) "添加生长记录" else "编辑生长记录") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
+                NativeDatePickerField(
                     value = date,
                     onValueChange = { date = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("日期") },
-                    supportingText = { Text("格式：yyyy-MM-dd") },
-                    singleLine = true,
+                    label = "日期",
+                    supportingText = "点击选择日期",
+                    maxDate = LocalDate.now(),
                 )
                 OutlinedTextField(
                     value = weight,
@@ -484,8 +485,8 @@ private fun AddGrowthDialog(
             TextButton(
                 onClick = {
                     val parsedDate = runCatching { LocalDate.parse(date.trim(), dateFormatter) }.getOrNull()
-                    if (parsedDate == null) {
-                        errorText = "日期格式不对，请使用 yyyy-MM-dd。"
+                    if (date.isBlank() || parsedDate == null) {
+                        errorText = "请选择日期。"
                     } else {
                         val weightValue = weight.trim().takeIf { it.isNotEmpty() }?.toFloatOrNull()
                         val heightValue = height.trim().takeIf { it.isNotEmpty() }?.toFloatOrNull()

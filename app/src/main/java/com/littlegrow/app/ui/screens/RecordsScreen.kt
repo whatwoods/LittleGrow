@@ -136,7 +136,9 @@ fun RecordsScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Column {
+        Column(
+            modifier = Modifier.padding(top = contentPadding.calculateTopPadding()),
+        ) {
             PrimaryTabRow(selectedTabIndex = selectedTab.ordinal) {
                 RecordTab.entries.forEach { tab ->
                     Tab(
@@ -687,7 +689,7 @@ private fun recordTabContentPadding(contentPadding: PaddingValues): PaddingValue
     return PaddingValues(
         start = 16.dp,
         end = 16.dp,
-        top = contentPadding.calculateTopPadding() + 16.dp,
+        top = 16.dp,
         bottom = contentPadding.calculateBottomPadding() + 96.dp,
     )
 }

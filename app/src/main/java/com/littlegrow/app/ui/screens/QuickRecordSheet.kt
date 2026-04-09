@@ -13,8 +13,10 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -31,9 +33,19 @@ fun QuickRecordSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selectedTab by rememberSaveable { mutableStateOf<RecordTab?>(null) }
+    var dismissDraft by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    LaunchedEffect(selectedTab) {
+        if (selectedTab != RecordTab.FEEDING) {
+            dismissDraft = null
+        }
+    }
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            dismissDraft?.invoke()
+            onDismiss()
+        },
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
@@ -78,6 +90,7 @@ fun QuickRecordSheet(
                             onDismiss()
                         },
                         onCancel = { selectedTab = null },
+                        bindDiscard = { dismissDraft = it },
                     )
                     RecordTab.SLEEP -> AddSleepForm(
                         initial = null,

@@ -166,7 +166,7 @@ fun HomeScreen(
         }
         if (summary.recentFeedings.isEmpty()) {
             item {
-                EmptyHint("还没有喂养记录。")
+                EmptyRecordCard("还没有喂养记录。", modifier = Modifier.padding(bottom = 8.dp))
             }
         } else {
             items(summary.recentFeedings, key = { it.id }) { feeding ->
@@ -179,7 +179,7 @@ fun HomeScreen(
         }
         if (summary.recentSleeps.isEmpty()) {
             item {
-                EmptyHint("还没有睡眠记录。")
+                EmptyRecordCard("还没有睡眠记录。", modifier = Modifier.padding(bottom = 8.dp))
             }
         } else {
             items(summary.recentSleeps, key = { it.id }) { sleep ->
@@ -192,7 +192,7 @@ fun HomeScreen(
         }
         if (summary.recentDiapers.isEmpty()) {
             item {
-                EmptyHint("还没有排泄记录。")
+                EmptyRecordCard("还没有排泄记录。", modifier = Modifier.padding(bottom = 8.dp))
             }
         } else {
             items(summary.recentDiapers, key = { it.id }) { diaper ->
@@ -325,17 +325,6 @@ private fun HomeDiaperCard(diaper: DiaperEntity) {
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun EmptyHint(text: String) {
-    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(16.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 

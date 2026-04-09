@@ -250,24 +250,18 @@ class MainViewModel(
     }
 
     fun addFeeding(draft: FeedingDraft) {
-        mutateData {
-            repository.addFeeding(draft)
-        }
+        addRecord(draft, LittleGrowRepository::addFeeding)
     }
 
     fun updateFeeding(
         id: Long,
         draft: FeedingDraft,
     ) {
-        mutateData {
-            repository.saveFeeding(recordId = id, draft = draft)
-        }
+        updateRecord(id, draft, LittleGrowRepository::saveFeeding)
     }
 
     fun deleteFeeding(id: Long) {
-        mutateData {
-            repository.deleteFeeding(id)
-        }
+        deleteRecord(id, LittleGrowRepository::deleteFeeding)
     }
 
     fun startBreastfeedingTimer(type: FeedingType) {
@@ -308,129 +302,93 @@ class MainViewModel(
     }
 
     fun addSleep(draft: SleepDraft) {
-        mutateData {
-            repository.addSleep(draft)
-        }
+        addRecord(draft, LittleGrowRepository::addSleep)
     }
 
     fun updateSleep(
         id: Long,
         draft: SleepDraft,
     ) {
-        mutateData {
-            repository.saveSleep(recordId = id, draft = draft)
-        }
+        updateRecord(id, draft, LittleGrowRepository::saveSleep)
     }
 
     fun deleteSleep(id: Long) {
-        mutateData {
-            repository.deleteSleep(id)
-        }
+        deleteRecord(id, LittleGrowRepository::deleteSleep)
     }
 
     fun addDiaper(draft: DiaperDraft) {
-        mutateData {
-            repository.addDiaper(draft)
-        }
+        addRecord(draft, LittleGrowRepository::addDiaper)
     }
 
     fun updateDiaper(
         id: Long,
         draft: DiaperDraft,
     ) {
-        mutateData {
-            repository.saveDiaper(recordId = id, draft = draft)
-        }
+        updateRecord(id, draft, LittleGrowRepository::saveDiaper)
     }
 
     fun deleteDiaper(id: Long) {
-        mutateData {
-            repository.deleteDiaper(id)
-        }
+        deleteRecord(id, LittleGrowRepository::deleteDiaper)
     }
 
     fun addGrowth(draft: GrowthDraft) {
-        mutateData {
-            repository.addGrowth(draft)
-        }
+        addRecord(draft, LittleGrowRepository::addGrowth)
     }
 
     fun updateGrowth(
         id: Long,
         draft: GrowthDraft,
     ) {
-        mutateData {
-            repository.saveGrowth(recordId = id, draft = draft)
-        }
+        updateRecord(id, draft, LittleGrowRepository::saveGrowth)
     }
 
     fun deleteGrowth(id: Long) {
-        mutateData {
-            repository.deleteGrowth(id)
-        }
+        deleteRecord(id, LittleGrowRepository::deleteGrowth)
     }
 
     fun addMilestone(draft: MilestoneDraft) {
-        mutateData {
-            repository.addMilestone(draft)
-        }
+        addRecord(draft, LittleGrowRepository::addMilestone)
     }
 
     fun updateMilestone(
         id: Long,
         draft: MilestoneDraft,
     ) {
-        mutateData {
-            repository.saveMilestone(recordId = id, draft = draft)
-        }
+        updateRecord(id, draft, LittleGrowRepository::saveMilestone)
     }
 
     fun deleteMilestone(id: Long) {
-        mutateData {
-            repository.deleteMilestone(id)
-        }
+        deleteRecord(id, LittleGrowRepository::deleteMilestone)
     }
 
     fun addMedical(draft: MedicalDraft) {
-        mutateData {
-            repository.addMedical(draft)
-        }
+        addRecord(draft, LittleGrowRepository::addMedical)
     }
 
     fun updateMedical(
         id: Long,
         draft: MedicalDraft,
     ) {
-        mutateData {
-            repository.saveMedical(recordId = id, draft = draft)
-        }
+        updateRecord(id, draft, LittleGrowRepository::saveMedical)
     }
 
     fun deleteMedical(id: Long) {
-        mutateData {
-            repository.deleteMedical(id)
-        }
+        deleteRecord(id, LittleGrowRepository::deleteMedical)
     }
 
     fun addActivity(draft: ActivityDraft) {
-        mutateData {
-            repository.addActivity(draft)
-        }
+        addRecord(draft, LittleGrowRepository::addActivity)
     }
 
     fun updateActivity(
         id: Long,
         draft: ActivityDraft,
     ) {
-        mutateData {
-            repository.saveActivity(recordId = id, draft = draft)
-        }
+        updateRecord(id, draft, LittleGrowRepository::saveActivity)
     }
 
     fun deleteActivity(id: Long) {
-        mutateData {
-            repository.deleteActivity(id)
-        }
+        deleteRecord(id, LittleGrowRepository::deleteActivity)
     }
 
     fun setVaccineStatus(
@@ -489,6 +447,34 @@ class MainViewModel(
                 refreshVaccineReminders()
             }
             refreshWidgets()
+        }
+    }
+
+    private fun <Draft> addRecord(
+        draft: Draft,
+        operation: suspend LittleGrowRepository.(Draft) -> Unit,
+    ) {
+        mutateData {
+            operation(repository, draft)
+        }
+    }
+
+    private fun <Draft> updateRecord(
+        id: Long,
+        draft: Draft,
+        operation: suspend LittleGrowRepository.(Long?, Draft) -> Unit,
+    ) {
+        mutateData {
+            operation(repository, id, draft)
+        }
+    }
+
+    private fun deleteRecord(
+        id: Long,
+        operation: suspend LittleGrowRepository.(Long) -> Unit,
+    ) {
+        mutateData {
+            operation(repository, id)
         }
     }
 

@@ -13,6 +13,10 @@ fun LocalDate.formatDate(): String = format(dateFormatter)
 
 fun LocalDateTime.formatDateTime(): String = format(dateTimeFormatter)
 
+fun String.toLocalDateTimeOrNull(): LocalDateTime? {
+    return runCatching { LocalDateTime.parse(trim(), dateTimeFormatter) }.getOrNull()
+}
+
 fun Duration.formatDuration(): String {
     val hours = toHours()
     val minutes = toMinutes() % 60

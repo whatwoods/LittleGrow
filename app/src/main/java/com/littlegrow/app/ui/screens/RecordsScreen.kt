@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -324,32 +325,27 @@ private fun FeedingsTab(
     onEdit: (FeedingEntity) -> Unit,
     onDelete: (Long) -> Unit,
 ) {
-    LazyColumn(
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            HeroCard(
-                title = "喂养记录",
-                summary = "支持母乳、瓶喂和辅食。母乳可直接用计时器落记录，辅食可附一张照片。",
-            )
-        }
-        item {
-            BreastfeedingTimerCard(
-                timerState = timerState,
-                onStartTimer = onStartTimer,
-                onCancelTimer = onCancelTimer,
-                onSaveTimer = onSaveTimer,
-            )
-        }
-        if (items.isEmpty()) {
-            item { EmptyRecordCard("还没有喂养记录。") }
-        } else {
+    RecordTabList(
+        contentPadding = contentPadding,
+        isEmpty = items.isEmpty(),
+        emptyText = "还没有喂养记录。",
+        headerContent = {
+            item {
+                HeroCard(
+                    title = "喂养记录",
+                    summary = "支持母乳、瓶喂和辅食。母乳可直接用计时器落记录，辅食可附一张照片。",
+                )
+            }
+            item {
+                BreastfeedingTimerCard(
+                    timerState = timerState,
+                    onStartTimer = onStartTimer,
+                    onCancelTimer = onCancelTimer,
+                    onSaveTimer = onSaveTimer,
+                )
+            }
+        },
+        itemContent = {
             items(items, key = { it.id }) { feeding ->
                 ElevatedCard {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -377,8 +373,8 @@ private fun FeedingsTab(
                     }
                 }
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable
@@ -457,24 +453,19 @@ private fun SleepTab(
     onEdit: (SleepEntity) -> Unit,
     onDelete: (Long) -> Unit,
 ) {
-    LazyColumn(
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            HeroCard(
-                title = "睡眠记录",
-                summary = "用开始与结束时间记录作息，首页会自动汇总今日总睡眠时长。",
-            )
-        }
-        if (items.isEmpty()) {
-            item { EmptyRecordCard("还没有睡眠记录。") }
-        } else {
+    RecordTabList(
+        contentPadding = contentPadding,
+        isEmpty = items.isEmpty(),
+        emptyText = "还没有睡眠记录。",
+        headerContent = {
+            item {
+                HeroCard(
+                    title = "睡眠记录",
+                    summary = "用开始与结束时间记录作息，首页会自动汇总今日总睡眠时长。",
+                )
+            }
+        },
+        itemContent = {
             items(items, key = { it.id }) { sleep ->
                 ElevatedCard {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -497,8 +488,8 @@ private fun SleepTab(
                     }
                 }
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable
@@ -508,24 +499,19 @@ private fun DiaperTab(
     onEdit: (DiaperEntity) -> Unit,
     onDelete: (Long) -> Unit,
 ) {
-    LazyColumn(
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            HeroCard(
-                title = "排泄记录",
-                summary = "大便可以补充颜色和性状，红色和白色会在列表中直接高亮。",
-            )
-        }
-        if (items.isEmpty()) {
-            item { EmptyRecordCard("还没有排泄记录。") }
-        } else {
+    RecordTabList(
+        contentPadding = contentPadding,
+        isEmpty = items.isEmpty(),
+        emptyText = "还没有排泄记录。",
+        headerContent = {
+            item {
+                HeroCard(
+                    title = "排泄记录",
+                    summary = "大便可以补充颜色和性状，红色和白色会在列表中直接高亮。",
+                )
+            }
+        },
+        itemContent = {
             items(items, key = { it.id }) { diaper ->
                 ElevatedCard {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -556,8 +542,8 @@ private fun DiaperTab(
                     }
                 }
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable
@@ -567,27 +553,22 @@ private fun MedicalTab(
     onEdit: (MedicalEntity) -> Unit,
     onDelete: (Long) -> Unit,
 ) {
-    LazyColumn(
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            HeroCard(
-                title = "健康记录",
-                summary = "把发热、用药和过敏史记成一条时间线；体温数据会自动画成小曲线。",
-            )
-        }
-        item {
-            TemperatureTrendCard(records = items)
-        }
-        if (items.isEmpty()) {
-            item { EmptyRecordCard("还没有健康记录。") }
-        } else {
+    RecordTabList(
+        contentPadding = contentPadding,
+        isEmpty = items.isEmpty(),
+        emptyText = "还没有健康记录。",
+        headerContent = {
+            item {
+                HeroCard(
+                    title = "健康记录",
+                    summary = "把发热、用药和过敏史记成一条时间线；体温数据会自动画成小曲线。",
+                )
+            }
+            item {
+                TemperatureTrendCard(records = items)
+            }
+        },
+        itemContent = {
             items(items, key = { it.id }) { medical ->
                 ElevatedCard {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -618,8 +599,8 @@ private fun MedicalTab(
                     }
                 }
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable
@@ -663,24 +644,19 @@ private fun ActivityTab(
     onEdit: (ActivityEntity) -> Unit,
     onDelete: (Long) -> Unit,
 ) {
-    LazyColumn(
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            HeroCard(
-                title = "活动记录",
-                summary = "把洗澡、户外、趴玩和早教补进去，照护节奏会更完整。",
-            )
-        }
-        if (items.isEmpty()) {
-            item { EmptyRecordCard("还没有活动记录。") }
-        } else {
+    RecordTabList(
+        contentPadding = contentPadding,
+        isEmpty = items.isEmpty(),
+        emptyText = "还没有活动记录。",
+        headerContent = {
+            item {
+                HeroCard(
+                    title = "活动记录",
+                    summary = "把洗澡、户外、趴玩和早教补进去，照护节奏会更完整。",
+                )
+            }
+        },
+        itemContent = {
             items(items, key = { it.id }) { activity ->
                 ElevatedCard {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -703,6 +679,36 @@ private fun ActivityTab(
                     }
                 }
             }
+        },
+    )
+}
+
+private fun recordTabContentPadding(contentPadding: PaddingValues): PaddingValues {
+    return PaddingValues(
+        start = 16.dp,
+        end = 16.dp,
+        top = contentPadding.calculateTopPadding() + 16.dp,
+        bottom = contentPadding.calculateBottomPadding() + 96.dp,
+    )
+}
+
+@Composable
+private fun RecordTabList(
+    contentPadding: PaddingValues,
+    isEmpty: Boolean,
+    emptyText: String,
+    headerContent: LazyListScope.() -> Unit,
+    itemContent: LazyListScope.() -> Unit,
+) {
+    LazyColumn(
+        contentPadding = recordTabContentPadding(contentPadding),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        headerContent()
+        if (isEmpty) {
+            item { EmptyRecordCard(emptyText) }
+        } else {
+            itemContent()
         }
     }
 }
@@ -726,8 +732,12 @@ private fun HeroCard(
 }
 
 @Composable
-fun EmptyRecordCard(text: String) {
+fun EmptyRecordCard(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
     Surface(
+        modifier = modifier,
         tonalElevation = 2.dp,
         shape = MaterialTheme.shapes.large,
     ) {
@@ -743,171 +753,35 @@ fun EmptyRecordCard(text: String) {
 private fun FormDialog(
     title: String,
     onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
     content: @Composable () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { content() },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("保存") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        confirmButton = {},
+        dismissButton = {},
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AddFeedingDialog(
     initial: FeedingEntity?,
     onDismiss: () -> Unit,
     onSubmit: (FeedingDraft) -> Unit,
 ) {
-    val context = LocalContext.current
-    var type by rememberSaveable(initial?.id) { mutableStateOf(initial?.type ?: FeedingType.BREAST_LEFT) }
-    var happenedAt by rememberSaveable(initial?.id) {
-        mutableStateOf(initial?.happenedAt?.format(dateTimeFormatter) ?: LocalDateTime.now().format(dateTimeFormatter))
-    }
-    var durationMinutes by rememberSaveable(initial?.id) { mutableStateOf(initial?.durationMinutes?.toString() ?: "15") }
-    var amountMl by rememberSaveable(initial?.id) { mutableStateOf(initial?.amountMl?.toString() ?: "90") }
-    var foodName by rememberSaveable(initial?.id) { mutableStateOf(initial?.foodName.orEmpty()) }
-    var photoPath by rememberSaveable(initial?.id) { mutableStateOf(initial?.photoPath) }
-    var note by rememberSaveable(initial?.id) { mutableStateOf(initial?.note.orEmpty()) }
-    var errorText by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
-    var pendingCapture by remember { mutableStateOf<PendingPhotoCapture?>(null) }
-
-    fun replacePhoto(newPath: String?) {
-        if (photoPath != initial?.photoPath) PhotoStore.deletePhoto(photoPath)
-        photoPath = newPath
-    }
-
-    val photoPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let {
-            runCatching { PhotoStore.importPhoto(context, it, "feeding") }
-                .onSuccess(::replacePhoto)
-                .onFailure { errorText = it.message ?: "照片导入失败。" }
-        }
-    }
-    val takePhotoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        val capture = pendingCapture
-        pendingCapture = null
-        if (success && capture != null) {
-            replacePhoto(capture.path)
-        } else {
-            PhotoStore.deletePhoto(capture?.path)
-        }
-    }
-
-    fun dismissDialog() {
-        if (photoPath != initial?.photoPath) PhotoStore.deletePhoto(photoPath)
-        onDismiss()
-    }
+    var dismissForm by remember { mutableStateOf<() -> Unit>({ onDismiss() }) }
 
     FormDialog(
         title = if (initial == null) "添加喂养记录" else "编辑喂养记录",
-        onDismiss = ::dismissDialog,
-        onConfirm = {
-            val happened = happenedAt.toLocalDateTimeOrNull()
-            if (happened == null) {
-                errorText = "时间格式不对，请使用 yyyy-MM-dd HH:mm。"
-            } else {
-                when (type) {
-                    FeedingType.BREAST_LEFT, FeedingType.BREAST_RIGHT -> {
-                        val minutes = durationMinutes.toIntOrNull()
-                        if (minutes == null || minutes <= 0) {
-                            errorText = "母乳记录需要有效时长。"
-                        } else {
-                            onSubmit(FeedingDraft(type, happened, minutes, null, null, null, note))
-                        }
-                    }
-
-                    FeedingType.BOTTLE_BREAST_MILK, FeedingType.BOTTLE_FORMULA -> {
-                        val amount = amountMl.toIntOrNull()
-                        if (amount == null || amount <= 0) {
-                            errorText = "瓶喂记录需要奶量。"
-                        } else {
-                            onSubmit(FeedingDraft(type, happened, null, amount, null, null, note))
-                        }
-                    }
-
-                    FeedingType.SOLID_FOOD -> {
-                        if (foodName.isBlank()) {
-                            errorText = "辅食记录需要食材名称。"
-                        } else {
-                            onSubmit(FeedingDraft(type, happened, null, null, foodName, photoPath, note))
-                        }
-                    }
-                }
-            }
-        },
+        onDismiss = { dismissForm() },
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            OptionSection(
-                title = "类型",
-                options = FeedingType.entries,
-                selected = type,
-                label = { it.label },
-                onSelect = { type = it },
-            )
-            OutlinedTextField(
-                value = happenedAt,
-                onValueChange = { happenedAt = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("发生时间") },
-                supportingText = { Text("格式：yyyy-MM-dd HH:mm") },
-                singleLine = true,
-            )
-            if (type == FeedingType.BREAST_LEFT || type == FeedingType.BREAST_RIGHT) {
-                OutlinedTextField(
-                    value = durationMinutes,
-                    onValueChange = { durationMinutes = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("时长（分钟）") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                )
-            }
-            if (type == FeedingType.BOTTLE_BREAST_MILK || type == FeedingType.BOTTLE_FORMULA) {
-                OutlinedTextField(
-                    value = amountMl,
-                    onValueChange = { amountMl = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("奶量（ml）") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                )
-            }
-            if (type == FeedingType.SOLID_FOOD) {
-                OutlinedTextField(
-                    value = foodName,
-                    onValueChange = { foodName = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("食材") },
-                    singleLine = true,
-                )
-                photoPath?.let {
-                    PhotoPreviewCard(filePath = it, contentDescription = "辅食照片预览")
-                }
-                PhotoActionRow(
-                    hasPhoto = photoPath != null,
-                    onTakePhoto = {
-                        val capture = PhotoStore.createPendingCapture(context, "feeding")
-                        pendingCapture = capture
-                        takePhotoLauncher.launch(capture.uri)
-                    },
-                    onPickPhoto = {
-                        photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    },
-                    onRemovePhoto = { replacePhoto(null) },
-                )
-            }
-            OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("备注") },
-            )
-            errorText?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        }
+        AddFeedingForm(
+            initial = initial,
+            onSubmit = onSubmit,
+            onCancel = onDismiss,
+            bindDiscard = { discardDraft -> dismissForm = { discardDraft(); onDismiss() } },
+        )
     }
 }
 
@@ -917,303 +791,53 @@ private fun AddSleepDialog(
     onDismiss: () -> Unit,
     onSubmit: (SleepDraft) -> Unit,
 ) {
-    val now = LocalDateTime.now()
-    var startTime by rememberSaveable(initial?.id) {
-        mutableStateOf(initial?.startTime?.format(dateTimeFormatter) ?: now.minusHours(1).format(dateTimeFormatter))
-    }
-    var endTime by rememberSaveable(initial?.id) {
-        mutableStateOf(initial?.endTime?.format(dateTimeFormatter) ?: now.format(dateTimeFormatter))
-    }
-    var note by rememberSaveable(initial?.id) { mutableStateOf(initial?.note.orEmpty()) }
-    var errorText by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
-
     FormDialog(
         title = if (initial == null) "添加睡眠记录" else "编辑睡眠记录",
         onDismiss = onDismiss,
-        onConfirm = {
-            val start = startTime.toLocalDateTimeOrNull()
-            val end = endTime.toLocalDateTimeOrNull()
-            if (start == null || end == null) {
-                errorText = "时间格式不对，请使用 yyyy-MM-dd HH:mm。"
-            } else if (!end.isAfter(start)) {
-                errorText = "结束时间需要晚于开始时间。"
-            } else {
-                onSubmit(SleepDraft(start, end, note))
-            }
-        },
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(
-                value = startTime,
-                onValueChange = { startTime = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("开始时间") },
-                supportingText = { Text("格式：yyyy-MM-dd HH:mm") },
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = endTime,
-                onValueChange = { endTime = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("结束时间") },
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("备注") },
-            )
-            errorText?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        }
+        AddSleepForm(initial = initial, onSubmit = onSubmit, onCancel = onDismiss)
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AddDiaperDialog(
     initial: DiaperEntity?,
     onDismiss: () -> Unit,
     onSubmit: (DiaperDraft) -> Unit,
 ) {
-    var type by rememberSaveable(initial?.id) { mutableStateOf(initial?.type ?: DiaperType.PEE) }
-    var happenedAt by rememberSaveable(initial?.id) {
-        mutableStateOf(initial?.happenedAt?.format(dateTimeFormatter) ?: LocalDateTime.now().format(dateTimeFormatter))
-    }
-    var selectedColor by rememberSaveable(initial?.id) { mutableStateOf(initial?.poopColor ?: PoopColor.YELLOW) }
-    var selectedTexture by rememberSaveable(initial?.id) { mutableStateOf(initial?.poopTexture ?: PoopTexture.NORMAL) }
-    var note by rememberSaveable(initial?.id) { mutableStateOf(initial?.note.orEmpty()) }
-    var errorText by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
-
     FormDialog(
         title = if (initial == null) "添加排泄记录" else "编辑排泄记录",
         onDismiss = onDismiss,
-        onConfirm = {
-            val happened = happenedAt.toLocalDateTimeOrNull()
-            if (happened == null) {
-                errorText = "时间格式不对，请使用 yyyy-MM-dd HH:mm。"
-            } else {
-                onSubmit(
-                    DiaperDraft(
-                        happenedAt = happened,
-                        type = type,
-                        poopColor = if (type == DiaperType.POOP) selectedColor else null,
-                        poopTexture = if (type == DiaperType.POOP) selectedTexture else null,
-                        note = note,
-                    ),
-                )
-            }
-        },
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            OptionSection("类型", DiaperType.entries, type, { it.label }) { type = it }
-            OutlinedTextField(
-                value = happenedAt,
-                onValueChange = { happenedAt = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("发生时间") },
-                supportingText = { Text("格式：yyyy-MM-dd HH:mm") },
-                singleLine = true,
-            )
-            if (type == DiaperType.POOP) {
-                OptionSection("颜色", PoopColor.entries, selectedColor, { it.label }) { selectedColor = it }
-                OptionSection("性状", PoopTexture.entries, selectedTexture, { it.label }) { selectedTexture = it }
-            }
-            OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("备注") },
-            )
-            errorText?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        }
+        AddDiaperForm(initial = initial, onSubmit = onSubmit, onCancel = onDismiss)
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AddMedicalDialog(
     initial: MedicalEntity?,
     onDismiss: () -> Unit,
     onSubmit: (MedicalDraft) -> Unit,
 ) {
-    var type by rememberSaveable(initial?.id) { mutableStateOf(initial?.type ?: MedicalRecordType.ILLNESS) }
-    var happenedAt by rememberSaveable(initial?.id) {
-        mutableStateOf(initial?.happenedAt?.format(dateTimeFormatter) ?: LocalDateTime.now().format(dateTimeFormatter))
-    }
-    var title by rememberSaveable(initial?.id) { mutableStateOf(initial?.title.orEmpty()) }
-    var temperature by rememberSaveable(initial?.id) { mutableStateOf(initial?.temperatureC?.toString().orEmpty()) }
-    var dosage by rememberSaveable(initial?.id) { mutableStateOf(initial?.dosage.orEmpty()) }
-    var note by rememberSaveable(initial?.id) { mutableStateOf(initial?.note.orEmpty()) }
-    var errorText by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
-
     FormDialog(
         title = if (initial == null) "添加健康记录" else "编辑健康记录",
         onDismiss = onDismiss,
-        onConfirm = {
-            val happened = happenedAt.toLocalDateTimeOrNull()
-            val temperatureValue = temperature.trim().takeIf { it.isNotEmpty() }?.toFloatOrNull()
-            if (happened == null) {
-                errorText = "时间格式不对，请使用 yyyy-MM-dd HH:mm。"
-            } else if (title.isBlank()) {
-                errorText = when (type) {
-                    MedicalRecordType.ILLNESS -> "疾病记录需要填写症状或诊断。"
-                    MedicalRecordType.MEDICATION -> "用药记录需要填写药品名。"
-                    MedicalRecordType.ALLERGY -> "过敏记录需要填写过敏原。"
-                }
-            } else if (temperature.isNotBlank() && temperatureValue == null) {
-                errorText = "体温格式不对，请输入数字。"
-            } else {
-                onSubmit(
-                    MedicalDraft(
-                        happenedAt = happened,
-                        type = type,
-                        title = title,
-                        temperatureC = if (type == MedicalRecordType.ILLNESS) temperatureValue else null,
-                        dosage = if (type == MedicalRecordType.MEDICATION) dosage else null,
-                        note = note,
-                    ),
-                )
-            }
-        },
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            OptionSection("类型", MedicalRecordType.entries, type, { it.label }) { type = it }
-            OutlinedTextField(
-                value = happenedAt,
-                onValueChange = { happenedAt = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("发生时间") },
-                supportingText = { Text("格式：yyyy-MM-dd HH:mm") },
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = {
-                    Text(
-                        when (type) {
-                            MedicalRecordType.ILLNESS -> "症状 / 诊断"
-                            MedicalRecordType.MEDICATION -> "药品名"
-                            MedicalRecordType.ALLERGY -> "过敏原"
-                        },
-                    )
-                },
-                singleLine = true,
-            )
-            if (type == MedicalRecordType.ILLNESS) {
-                OutlinedTextField(
-                    value = temperature,
-                    onValueChange = { temperature = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("体温（℃）") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                )
-            }
-            if (type == MedicalRecordType.MEDICATION) {
-                OutlinedTextField(
-                    value = dosage,
-                    onValueChange = { dosage = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("剂量 / 用法") },
-                    singleLine = true,
-                )
-            }
-            OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("备注") },
-            )
-            errorText?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        }
+        AddMedicalForm(initial = initial, onSubmit = onSubmit, onCancel = onDismiss)
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AddActivityDialog(
     initial: ActivityEntity?,
     onDismiss: () -> Unit,
     onSubmit: (ActivityDraft) -> Unit,
 ) {
-    var type by rememberSaveable(initial?.id) { mutableStateOf(initial?.type ?: ActivityType.OUTDOOR) }
-    var happenedAt by rememberSaveable(initial?.id) {
-        mutableStateOf(initial?.happenedAt?.format(dateTimeFormatter) ?: LocalDateTime.now().format(dateTimeFormatter))
-    }
-    var durationMinutes by rememberSaveable(initial?.id) { mutableStateOf(initial?.durationMinutes?.toString().orEmpty()) }
-    var note by rememberSaveable(initial?.id) { mutableStateOf(initial?.note.orEmpty()) }
-    var errorText by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
-
     FormDialog(
         title = if (initial == null) "添加活动记录" else "编辑活动记录",
         onDismiss = onDismiss,
-        onConfirm = {
-            val happened = happenedAt.toLocalDateTimeOrNull()
-            val durationValue = durationMinutes.trim().takeIf { it.isNotEmpty() }?.toIntOrNull()
-            if (happened == null) {
-                errorText = "时间格式不对，请使用 yyyy-MM-dd HH:mm。"
-            } else if (durationMinutes.isNotBlank() && durationValue == null) {
-                errorText = "时长格式不对，请输入整数分钟。"
-            } else {
-                onSubmit(ActivityDraft(happened, type, durationValue, note))
-            }
-        },
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            OptionSection("类型", ActivityType.entries, type, { it.label }) { type = it }
-            OutlinedTextField(
-                value = happenedAt,
-                onValueChange = { happenedAt = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("发生时间") },
-                supportingText = { Text("格式：yyyy-MM-dd HH:mm") },
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = durationMinutes,
-                onValueChange = { durationMinutes = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("时长（分钟，可选）") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("备注") },
-            )
-            errorText?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun <T> OptionSection(
-    title: String,
-    options: List<T>,
-    selected: T,
-    label: (T) -> String,
-    onSelect: (T) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.labelLarge)
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            options.forEach { option ->
-                androidx.compose.material3.FilterChip(
-                    selected = option == selected,
-                    onClick = { onSelect(option) },
-                    label = { Text(label(option)) },
-                )
-            }
-        }
+        AddActivityForm(initial = initial, onSubmit = onSubmit, onCancel = onDismiss)
     }
 }
 
@@ -1259,10 +883,6 @@ private fun SimpleValueChart(
             drawCircle(color = pointColor, radius = 8f, center = point)
         }
     }
-}
-
-private fun String.toLocalDateTimeOrNull(): LocalDateTime? {
-    return runCatching { LocalDateTime.parse(this.trim(), dateTimeFormatter) }.getOrNull()
 }
 
 private fun Long.formatStopwatch(): String {

@@ -1,13 +1,8 @@
 package com.littlegrow.app.ui.screens
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,7 +13,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -32,19 +26,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.littlegrow.app.data.BabyProfile
 import com.littlegrow.app.data.MilestoneCategory
 import com.littlegrow.app.data.MilestoneDraft
 import com.littlegrow.app.data.MilestoneEntity
-import com.littlegrow.app.media.PendingPhotoCapture
-import com.littlegrow.app.media.PhotoStore
 import com.littlegrow.app.ui.PhotoActionRow
 import com.littlegrow.app.ui.PhotoPreviewCard
 import com.littlegrow.app.ui.dateFormatter
 import com.littlegrow.app.ui.formatDate
+import com.littlegrow.app.ui.rememberManagedPhotoAttachment
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -169,57 +161,31 @@ fun TimelineScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AddMilestoneDialog(
     initial: MilestoneEntity?,
     onDismiss: () -> Unit,
     onSubmit: (MilestoneDraft) -> Unit,
 ) {
-    val context = LocalContext.current
     var title by rememberSaveable(initial?.id) { mutableStateOf(initial?.title.orEmpty()) }
     var category by rememberSaveable(initial?.id) { mutableStateOf(initial?.category ?: MilestoneCategory.GROSS_MOTOR) }
     var date by rememberSaveable(initial?.id) {
         mutableStateOf(initial?.achievedDate?.format(dateFormatter) ?: LocalDate.now().format(dateFormatter))
     }
-    var photoPath by rememberSaveable(initial?.id) { mutableStateOf(initial?.photoPath) }
     var note by rememberSaveable(initial?.id) { mutableStateOf(initial?.note.orEmpty()) }
     var errorText by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
-    var pendingCapture by remember { mutableStateOf<PendingPhotoCapture?>(null) }
-
-    fun replacePhoto(newPath: String?) {
-        if (photoPath != initial?.photoPath) {
-            PhotoStore.deletePhoto(photoPath)
-        }
-        photoPath = newPath
-    }
-
-    val photoPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let {
-            runCatching { PhotoStore.importPhoto(context, it, "milestone") }
-                .onSuccess(::replacePhoto)
-                .onFailure { errorText = it.message ?: "照片导入失败。" }
-        }
-    }
-    val takePhotoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        val capture = pendingCapture
-        pendingCapture = null
-        if (success && capture != null) {
-            replacePhoto(capture.path)
-        } else {
-            PhotoStore.deletePhoto(capture?.path)
-        }
-    }
-
-    fun dismissDialog() {
-        if (photoPath != initial?.photoPath) {
-            PhotoStore.deletePhoto(photoPath)
-        }
-        onDismiss()
-    }
+    val photoAttachment = rememberManagedPhotoAttachment(
+        initialPhotoPath = initial?.photoPath,
+        photoTag = "milestone",
+        onError = { errorText = it },
+    )
+    val photoPath = photoAttachment.photoPath
 
     AlertDialog(
-        onDismissRequest = ::dismissDialog,
+        onDismissRequest = {
+            photoAttachment.discardChanges()
+            onDismiss()
+        },
         title = { Text(if (initial == null) "添加里程碑" else "编辑里程碑") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -230,21 +196,7 @@ private fun AddMilestoneDialog(
                     label = { Text("标题") },
                     singleLine = true,
                 )
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("类别", style = MaterialTheme.typography.labelLarge)
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        MilestoneCategory.entries.forEach { option ->
-                            FilterChip(
-                                selected = option == category,
-                                onClick = { category = option },
-                                label = { Text(option.label) },
-                            )
-                        }
-                    }
-                }
+                FilterChipSection("类别", MilestoneCategory.entries, category, { it.label }) { category = it }
                 OutlinedTextField(
                     value = date,
                     onValueChange = { date = it },
@@ -258,15 +210,9 @@ private fun AddMilestoneDialog(
                 }
                 PhotoActionRow(
                     hasPhoto = photoPath != null,
-                    onTakePhoto = {
-                        val capture = PhotoStore.createPendingCapture(context, "milestone")
-                        pendingCapture = capture
-                        takePhotoLauncher.launch(capture.uri)
-                    },
-                    onPickPhoto = {
-                        photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    },
-                    onRemovePhoto = { replacePhoto(null) },
+                    onTakePhoto = photoAttachment.onTakePhoto,
+                    onPickPhoto = photoAttachment.onPickPhoto,
+                    onRemovePhoto = photoAttachment.onRemovePhoto,
                 )
                 OutlinedTextField(
                     value = note,
@@ -288,6 +234,7 @@ private fun AddMilestoneDialog(
                     } else if (parsedDate == null) {
                         errorText = "日期格式不对，请使用 yyyy-MM-dd。"
                     } else {
+                        photoAttachment.commitChanges()
                         onSubmit(
                             MilestoneDraft(
                                 title = title,
@@ -304,7 +251,10 @@ private fun AddMilestoneDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = ::dismissDialog) {
+            TextButton(onClick = {
+                photoAttachment.discardChanges()
+                onDismiss()
+            }) {
                 Text("取消")
             }
         },

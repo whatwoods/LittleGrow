@@ -1,42 +1,25 @@
 package com.littlegrow.app.ui.screens
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.littlegrow.app.data.ActivityDraft
@@ -55,69 +38,12 @@ import com.littlegrow.app.data.PoopColor
 import com.littlegrow.app.data.PoopTexture
 import com.littlegrow.app.data.SleepDraft
 import com.littlegrow.app.data.SleepEntity
-import com.littlegrow.app.media.PendingPhotoCapture
-import com.littlegrow.app.media.PhotoStore
 import com.littlegrow.app.ui.PhotoActionRow
 import com.littlegrow.app.ui.PhotoPreviewCard
 import com.littlegrow.app.ui.dateTimeFormatter
+import com.littlegrow.app.ui.rememberManagedPhotoAttachment
+import com.littlegrow.app.ui.toLocalDateTimeOrNull
 import java.time.LocalDateTime
-
-private fun String.toLocalDateTimeOrNull(): LocalDateTime? {
-    return runCatching { LocalDateTime.parse(this.trim(), dateTimeFormatter) }.getOrNull()
-}
-
-@Composable
-fun LargeOptionItem(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(targetValue = if (isPressed) 0.95f else 1f, label = "scale")
-
-    Surface(
-        modifier = Modifier
-            .scale(scale)
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-    ) {
-        Box(
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(label, fontWeight = FontWeight.SemiBold)
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun <T> LargeOptionSection(
-    title: String,
-    options: List<T>,
-    selected: T,
-    label: (T) -> String,
-    onSelect: (T) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.labelLarge)
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            options.forEach { option ->
-                LargeOptionItem(
-                    label = label(option),
-                    selected = option == selected,
-                    onClick = { onSelect(option) }
-                )
-            }
-        }
-    }
-}
 
 @Composable
 fun QuickInputRow(onAdd: (Int) -> Unit) {
@@ -141,9 +67,9 @@ fun QuickInputRow(onAdd: (Int) -> Unit) {
 fun AddFeedingForm(
     initial: FeedingEntity?,
     onSubmit: (FeedingDraft) -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    bindDiscard: (((() -> Unit)) -> Unit)? = null,
 ) {
-    val context = LocalContext.current
     var type by rememberSaveable(initial?.id) { mutableStateOf(initial?.type ?: FeedingType.BREAST_LEFT) }
     var happenedAt by rememberSaveable(initial?.id) {
         mutableStateOf(initial?.happenedAt?.format(dateTimeFormatter) ?: LocalDateTime.now().format(dateTimeFormatter))
@@ -151,31 +77,22 @@ fun AddFeedingForm(
     var durationMinutes by rememberSaveable(initial?.id) { mutableStateOf(initial?.durationMinutes?.toString() ?: "15") }
     var amountMl by rememberSaveable(initial?.id) { mutableStateOf(initial?.amountMl?.toString() ?: "90") }
     var foodName by rememberSaveable(initial?.id) { mutableStateOf(initial?.foodName.orEmpty()) }
-    var photoPath by rememberSaveable(initial?.id) { mutableStateOf(initial?.photoPath) }
     var note by rememberSaveable(initial?.id) { mutableStateOf(initial?.note.orEmpty()) }
     var errorText by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
-    var pendingCapture by remember { mutableStateOf<PendingPhotoCapture?>(null) }
-
-    fun replacePhoto(newPath: String?) {
-        if (photoPath != initial?.photoPath) PhotoStore.deletePhoto(photoPath)
-        photoPath = newPath
+    val photoAttachment = rememberManagedPhotoAttachment(
+        initialPhotoPath = initial?.photoPath,
+        photoTag = "feeding",
+        onError = { errorText = it },
+    )
+    val photoPath = photoAttachment.photoPath
+    val discardDraft = { photoAttachment.discardChanges() }
+    val cancelForm = {
+        discardDraft()
+        onCancel()
     }
 
-    val photoPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let {
-            runCatching { PhotoStore.importPhoto(context, it, "feeding") }
-                .onSuccess(::replacePhoto)
-                .onFailure { errorText = it.message ?: "照片导入失败。" }
-        }
-    }
-    val takePhotoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        val capture = pendingCapture
-        pendingCapture = null
-        if (success && capture != null) {
-            replacePhoto(capture.path)
-        } else {
-            PhotoStore.deletePhoto(capture?.path)
-        }
+    SideEffect {
+        bindDiscard?.invoke(discardDraft)
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -238,15 +155,9 @@ fun AddFeedingForm(
             }
             PhotoActionRow(
                 hasPhoto = photoPath != null,
-                onTakePhoto = {
-                    val capture = PhotoStore.createPendingCapture(context, "feeding")
-                    pendingCapture = capture
-                    takePhotoLauncher.launch(capture.uri)
-                },
-                onPickPhoto = {
-                    photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                },
-                onRemovePhoto = { replacePhoto(null) },
+                onTakePhoto = photoAttachment.onTakePhoto,
+                onPickPhoto = photoAttachment.onPickPhoto,
+                onRemovePhoto = photoAttachment.onRemovePhoto,
             )
         }
         OutlinedTextField(
@@ -261,10 +172,7 @@ fun AddFeedingForm(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End
         ) {
-            TextButton(onClick = {
-                if (photoPath != initial?.photoPath) PhotoStore.deletePhoto(photoPath)
-                onCancel()
-            }) { Text("取消") }
+            TextButton(onClick = cancelForm) { Text("取消") }
             Button(onClick = {
                 val happened = happenedAt.toLocalDateTimeOrNull()
                 if (happened == null) {
@@ -276,6 +184,7 @@ fun AddFeedingForm(
                             if (minutes == null || minutes <= 0) {
                                 errorText = "母乳记录需要有效时长。"
                             } else {
+                                photoAttachment.commitChanges()
                                 onSubmit(FeedingDraft(type, happened, minutes, null, null, null, note))
                             }
                         }
@@ -284,6 +193,7 @@ fun AddFeedingForm(
                             if (amount == null || amount <= 0) {
                                 errorText = "瓶喂记录需要奶量。"
                             } else {
+                                photoAttachment.commitChanges()
                                 onSubmit(FeedingDraft(type, happened, null, amount, null, null, note))
                             }
                         }
@@ -291,6 +201,7 @@ fun AddFeedingForm(
                             if (foodName.isBlank()) {
                                 errorText = "辅食记录需要食材名称。"
                             } else {
+                                photoAttachment.commitChanges()
                                 onSubmit(FeedingDraft(type, happened, null, null, foodName, photoPath, note))
                             }
                         }

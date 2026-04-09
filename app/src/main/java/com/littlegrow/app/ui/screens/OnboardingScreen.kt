@@ -43,9 +43,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.littlegrow.app.data.BabyProfile
 import com.littlegrow.app.data.Gender
+import com.littlegrow.app.ui.dateFormatter
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
 private data class OnboardingPage(
     val emoji: String,
@@ -73,7 +73,6 @@ private val introPages = listOf(
 
 private const val TOTAL_PAGES = 4 // 3 intro + 1 profile setup
 private const val PROFILE_PAGE_INDEX = 3
-private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
 @Composable
 fun OnboardingScreen(

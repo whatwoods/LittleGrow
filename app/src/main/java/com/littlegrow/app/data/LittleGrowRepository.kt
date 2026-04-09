@@ -23,6 +23,7 @@ class LittleGrowRepository(
     val activityRecords: Flow<List<ActivityEntity>> = database.activityDao().observeAll()
     val vaccines: Flow<List<VaccineEntity>> = database.vaccineDao().observeAll()
     val themeMode: Flow<ThemeMode> = preferencesRepository.themeMode
+    val appTheme: Flow<AppTheme> = preferencesRepository.appTheme
     val vaccineRemindersEnabled: Flow<Boolean> = preferencesRepository.vaccineRemindersEnabled
     val onboardingCompleted: Flow<Boolean> = preferencesRepository.onboardingCompleted
 
@@ -220,6 +221,10 @@ class LittleGrowRepository(
 
     fun setThemeMode(mode: ThemeMode) {
         preferencesRepository.setThemeMode(mode)
+    }
+
+    fun setAppTheme(theme: AppTheme) {
+        preferencesRepository.setAppTheme(theme)
     }
 
     fun setVaccineRemindersEnabled(enabled: Boolean) {

@@ -11,6 +11,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.littlegrow.app.data.ActivityDraft
 import com.littlegrow.app.data.ActivityEntity
 import com.littlegrow.app.data.AppDatabase
+import com.littlegrow.app.data.AppTheme
 import com.littlegrow.app.data.BabyProfile
 import com.littlegrow.app.data.DiaperDraft
 import com.littlegrow.app.data.DiaperEntity
@@ -86,6 +87,12 @@ class MainViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = ThemeMode.SYSTEM,
+    )
+
+    val appTheme: StateFlow<AppTheme> = repository.appTheme.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = AppTheme.EARTHY,
     )
 
     val profile: StateFlow<BabyProfile?> = repository.profile
@@ -412,6 +419,10 @@ class MainViewModel(
 
     fun setThemeMode(mode: ThemeMode) {
         repository.setThemeMode(mode)
+    }
+
+    fun setAppTheme(theme: AppTheme) {
+        repository.setAppTheme(theme)
     }
 
     fun setVaccineRemindersEnabled(enabled: Boolean) {

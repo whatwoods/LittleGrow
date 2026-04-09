@@ -5,7 +5,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.littlegrow.app.notifications.VaccineReminderScheduler
+import com.littlegrow.app.ui.theme.LittleGrowTheme
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels { MainViewModel.Factory }
@@ -16,7 +19,19 @@ class MainActivity : ComponentActivity() {
         VaccineReminderScheduler.ensureChannel(this)
         enableEdgeToEdge()
         setContent {
-            LittleGrowApp(viewModel = viewModel)
+            val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+            val appTheme by viewModel.appTheme.collectAsStateWithLifecycle()
+
+            LittleGrowTheme(
+                themeMode = themeMode,
+                appTheme = appTheme,
+            ) {
+                LittleGrowApp(
+                    viewModel = viewModel,
+                    themeMode = themeMode,
+                    appTheme = appTheme,
+                )
+            }
         }
     }
 

@@ -10,12 +10,18 @@ class PreferencesRepository(
 ) {
     private val sharedPreferences = context.getSharedPreferences("little_grow_preferences", Context.MODE_PRIVATE)
     private val themeKey = "theme_mode"
+    private val appThemeKey = "app_theme"
     private val vaccineReminderKey = "vaccine_reminders_enabled"
     private val onboardingCompletedKey = "onboarding_completed"
     private val themeState = MutableStateFlow(
         sharedPreferences.getString(themeKey, ThemeMode.SYSTEM.name)
             ?.let(ThemeMode::valueOf)
             ?: ThemeMode.SYSTEM,
+    )
+    private val appThemeState = MutableStateFlow(
+        sharedPreferences.getString(appThemeKey, AppTheme.EARTHY.name)
+            ?.let(AppTheme::valueOf)
+            ?: AppTheme.EARTHY,
     )
     private val vaccineReminderState = MutableStateFlow(
         sharedPreferences.getBoolean(vaccineReminderKey, true),
@@ -25,12 +31,18 @@ class PreferencesRepository(
     )
 
     val themeMode: Flow<ThemeMode> = themeState.asStateFlow()
+    val appTheme: Flow<AppTheme> = appThemeState.asStateFlow()
     val vaccineRemindersEnabled: Flow<Boolean> = vaccineReminderState.asStateFlow()
     val onboardingCompleted: Flow<Boolean> = onboardingCompletedState.asStateFlow()
 
     fun setThemeMode(mode: ThemeMode) {
         sharedPreferences.edit().putString(themeKey, mode.name).apply()
         themeState.value = mode
+    }
+
+    fun setAppTheme(theme: AppTheme) {
+        sharedPreferences.edit().putString(appThemeKey, theme.name).apply()
+        appThemeState.value = theme
     }
 
     fun setVaccineRemindersEnabled(enabled: Boolean) {

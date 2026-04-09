@@ -25,11 +25,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.littlegrow.app.data.AppTheme
+import com.littlegrow.app.data.ThemeMode
 import com.littlegrow.app.ui.screens.GrowthScreen
 import com.littlegrow.app.ui.screens.HomeScreen
 import com.littlegrow.app.ui.screens.OnboardingScreen
@@ -37,7 +38,6 @@ import com.littlegrow.app.ui.screens.RecordsScreen
 import com.littlegrow.app.ui.screens.SettingsScreen
 import com.littlegrow.app.ui.screens.TimelineScreen
 import com.littlegrow.app.ui.screens.QuickRecordSheet
-import com.littlegrow.app.ui.theme.LittleGrowTheme
 import com.littlegrow.app.ui.theme.softShadow
 
 private data class TopLevelDestination(
@@ -56,13 +56,14 @@ private val topLevelDestinations = listOf(
 
 @Composable
 fun LittleGrowApp(
-    viewModel: MainViewModel = viewModel(factory = MainViewModel.Factory),
+    viewModel: MainViewModel,
+    themeMode: ThemeMode,
+    appTheme: AppTheme,
 ) {
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route ?: AppDestination.HOME.route
 
-    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val summary by viewModel.homeSummary.collectAsStateWithLifecycle()
     val profile by viewModel.profile.collectAsStateWithLifecycle()
     val feedings by viewModel.feedings.collectAsStateWithLifecycle()
@@ -92,170 +93,170 @@ fun LittleGrowApp(
         viewModel.consumePendingDestination()
     }
 
-    LittleGrowTheme(themeMode = themeMode) {
-        when (launchState) {
-            AppLaunchState.LOADING -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator()
-                }
-                return@LittleGrowTheme
-            }
-
-            AppLaunchState.ONBOARDING -> {
-                OnboardingScreen(onComplete = viewModel::completeOnboarding)
-                return@LittleGrowTheme
-            }
-
-            AppLaunchState.READY -> Unit
-        }
-
-        if (showQuickRecordSheet) {
-            QuickRecordSheet(
-                viewModel = viewModel,
-                onDismiss = { showQuickRecordSheet = false },
-            )
-        }
-
-        Scaffold(
-            floatingActionButton = {
-                if (currentRoute == AppDestination.HOME.route || currentRoute == AppDestination.RECORDS.route) {
-                    FloatingActionButton(
-                        onClick = { showQuickRecordSheet = true },
-                        modifier = Modifier.softShadow(),
-                        shape = androidx.compose.material3.MaterialTheme.shapes.large,
-                    ) {
-                        Icon(Icons.Rounded.Add, contentDescription = "添加记录")
-                    }
-                }
-            },
-            bottomBar = {
-                NavigationBar {
-                    topLevelDestinations.forEach { destination ->
-                        NavigationBarItem(
-                            selected = currentRoute == destination.destination.route,
-                            onClick = {
-                                navController.navigate(destination.destination.route) {
-                                    popUpTo(AppDestination.HOME.route) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = { androidx.compose.material3.Icon(destination.icon, destination.label) },
-                            label = { androidx.compose.material3.Text(destination.label) },
-                        )
-                    }
-                }
-            },
-        ) { innerPadding ->
-            NavHost(
-                navController = navController,
-                startDestination = AppDestination.HOME.route,
+    when (launchState) {
+        AppLaunchState.LOADING -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
             ) {
-                composable(AppDestination.HOME.route) {
-                    HomeScreen(
-                        summary = summary,
-                        contentPadding = innerPadding,
-                        onOpenRecords = { tab ->
-                            viewModel.selectRecordTab(tab)
-                            navController.navigate(AppDestination.RECORDS.route) {
+                CircularProgressIndicator()
+            }
+            return
+        }
+
+        AppLaunchState.ONBOARDING -> {
+            OnboardingScreen(onComplete = viewModel::completeOnboarding)
+            return
+        }
+
+        AppLaunchState.READY -> Unit
+    }
+
+    if (showQuickRecordSheet) {
+        QuickRecordSheet(
+            viewModel = viewModel,
+            onDismiss = { showQuickRecordSheet = false },
+        )
+    }
+
+    Scaffold(
+        floatingActionButton = {
+            if (currentRoute == AppDestination.HOME.route || currentRoute == AppDestination.RECORDS.route) {
+                FloatingActionButton(
+                    onClick = { showQuickRecordSheet = true },
+                    modifier = Modifier.softShadow(),
+                    shape = androidx.compose.material3.MaterialTheme.shapes.large,
+                ) {
+                    Icon(Icons.Rounded.Add, contentDescription = "添加记录")
+                }
+            }
+        },
+        bottomBar = {
+            NavigationBar {
+                topLevelDestinations.forEach { destination ->
+                    NavigationBarItem(
+                        selected = currentRoute == destination.destination.route,
+                        onClick = {
+                            navController.navigate(destination.destination.route) {
+                                popUpTo(AppDestination.HOME.route) { saveState = true }
                                 launchSingleTop = true
+                                restoreState = true
                             }
                         },
-                        onOpenGrowth = {
-                            navController.navigate(AppDestination.GROWTH.route) {
-                                launchSingleTop = true
-                            }
-                        },
-                        onOpenTimeline = {
-                            navController.navigate(AppDestination.TIMELINE.route) {
-                                launchSingleTop = true
-                            }
-                        },
-                        onOpenSettings = {
-                            navController.navigate(AppDestination.SETTINGS.route) {
-                                launchSingleTop = true
-                            }
-                        },
+                        icon = { androidx.compose.material3.Icon(destination.icon, destination.label) },
+                        label = { androidx.compose.material3.Text(destination.label) },
                     )
                 }
+            }
+        },
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = AppDestination.HOME.route,
+        ) {
+            composable(AppDestination.HOME.route) {
+                HomeScreen(
+                    summary = summary,
+                    contentPadding = innerPadding,
+                    onOpenRecords = { tab ->
+                        viewModel.selectRecordTab(tab)
+                        navController.navigate(AppDestination.RECORDS.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onOpenGrowth = {
+                        navController.navigate(AppDestination.GROWTH.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onOpenTimeline = {
+                        navController.navigate(AppDestination.TIMELINE.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onOpenSettings = {
+                        navController.navigate(AppDestination.SETTINGS.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
 
-                composable(AppDestination.RECORDS.route) {
-                    RecordsScreen(
-                        selectedTab = recordTab,
-                        feedings = feedings,
-                        sleeps = sleeps,
-                        diapers = diapers,
-                        medicalRecords = medicalRecords,
-                        activityRecords = activityRecords,
-                        breastfeedingTimer = breastfeedingTimer,
-                        pendingQuickAction = pendingQuickAction,
-                        contentPadding = innerPadding,
-                        onSelectTab = viewModel::selectRecordTab,
-                        onConsumeQuickAction = viewModel::consumePendingRecordQuickAction,
-                        onStartBreastfeedingTimer = viewModel::startBreastfeedingTimer,
-                        onCancelBreastfeedingTimer = viewModel::cancelBreastfeedingTimer,
-                        onSaveBreastfeedingTimer = viewModel::saveBreastfeedingTimer,
-                        onAddFeeding = viewModel::addFeeding,
-                        onUpdateFeeding = viewModel::updateFeeding,
-                        onDeleteFeeding = viewModel::deleteFeeding,
-                        onAddSleep = viewModel::addSleep,
-                        onUpdateSleep = viewModel::updateSleep,
-                        onDeleteSleep = viewModel::deleteSleep,
-                        onAddDiaper = viewModel::addDiaper,
-                        onUpdateDiaper = viewModel::updateDiaper,
-                        onDeleteDiaper = viewModel::deleteDiaper,
-                        onAddMedical = viewModel::addMedical,
-                        onUpdateMedical = viewModel::updateMedical,
-                        onDeleteMedical = viewModel::deleteMedical,
-                        onAddActivity = viewModel::addActivity,
-                        onUpdateActivity = viewModel::updateActivity,
-                        onDeleteActivity = viewModel::deleteActivity,
-                    )
-                }
+            composable(AppDestination.RECORDS.route) {
+                RecordsScreen(
+                    selectedTab = recordTab,
+                    feedings = feedings,
+                    sleeps = sleeps,
+                    diapers = diapers,
+                    medicalRecords = medicalRecords,
+                    activityRecords = activityRecords,
+                    breastfeedingTimer = breastfeedingTimer,
+                    pendingQuickAction = pendingQuickAction,
+                    contentPadding = innerPadding,
+                    onSelectTab = viewModel::selectRecordTab,
+                    onConsumeQuickAction = viewModel::consumePendingRecordQuickAction,
+                    onStartBreastfeedingTimer = viewModel::startBreastfeedingTimer,
+                    onCancelBreastfeedingTimer = viewModel::cancelBreastfeedingTimer,
+                    onSaveBreastfeedingTimer = viewModel::saveBreastfeedingTimer,
+                    onAddFeeding = viewModel::addFeeding,
+                    onUpdateFeeding = viewModel::updateFeeding,
+                    onDeleteFeeding = viewModel::deleteFeeding,
+                    onAddSleep = viewModel::addSleep,
+                    onUpdateSleep = viewModel::updateSleep,
+                    onDeleteSleep = viewModel::deleteSleep,
+                    onAddDiaper = viewModel::addDiaper,
+                    onUpdateDiaper = viewModel::updateDiaper,
+                    onDeleteDiaper = viewModel::deleteDiaper,
+                    onAddMedical = viewModel::addMedical,
+                    onUpdateMedical = viewModel::updateMedical,
+                    onDeleteMedical = viewModel::deleteMedical,
+                    onAddActivity = viewModel::addActivity,
+                    onUpdateActivity = viewModel::updateActivity,
+                    onDeleteActivity = viewModel::deleteActivity,
+                )
+            }
 
-                composable(AppDestination.GROWTH.route) {
-                    GrowthScreen(
-                        profile = profile,
-                        growthRecords = growthRecords,
-                        vaccines = vaccines,
-                        contentPadding = innerPadding,
-                        onAddGrowth = viewModel::addGrowth,
-                        onUpdateGrowth = viewModel::updateGrowth,
-                        onDeleteGrowth = viewModel::deleteGrowth,
-                        onToggleVaccineDone = viewModel::setVaccineStatus,
-                    )
-                }
+            composable(AppDestination.GROWTH.route) {
+                GrowthScreen(
+                    profile = profile,
+                    growthRecords = growthRecords,
+                    vaccines = vaccines,
+                    contentPadding = innerPadding,
+                    onAddGrowth = viewModel::addGrowth,
+                    onUpdateGrowth = viewModel::updateGrowth,
+                    onDeleteGrowth = viewModel::deleteGrowth,
+                    onToggleVaccineDone = viewModel::setVaccineStatus,
+                )
+            }
 
-                composable(AppDestination.TIMELINE.route) {
-                    TimelineScreen(
-                        profile = profile,
-                        milestones = milestones,
-                        contentPadding = innerPadding,
-                        onAddMilestone = viewModel::addMilestone,
-                        onUpdateMilestone = viewModel::updateMilestone,
-                        onDeleteMilestone = viewModel::deleteMilestone,
-                    )
-                }
+            composable(AppDestination.TIMELINE.route) {
+                TimelineScreen(
+                    profile = profile,
+                    milestones = milestones,
+                    contentPadding = innerPadding,
+                    onAddMilestone = viewModel::addMilestone,
+                    onUpdateMilestone = viewModel::updateMilestone,
+                    onDeleteMilestone = viewModel::deleteMilestone,
+                )
+            }
 
-                composable(AppDestination.SETTINGS.route) {
-                    SettingsScreen(
-                        profile = profile,
-                        themeMode = themeMode,
-                        vaccineRemindersEnabled = vaccineRemindersEnabled,
-                        exportMessage = exportMessage,
-                        isExporting = isExporting,
-                        contentPadding = innerPadding,
-                        onSaveProfile = viewModel::saveProfile,
-                        onThemeModeChange = viewModel::setThemeMode,
-                        onVaccineRemindersChange = viewModel::setVaccineRemindersEnabled,
-                        onExportCsv = viewModel::exportCsv,
-                        onExportPdf = viewModel::exportPdf,
-                        onClearExportMessage = viewModel::clearExportMessage,
-                    )
-                }
+            composable(AppDestination.SETTINGS.route) {
+                SettingsScreen(
+                    profile = profile,
+                    themeMode = themeMode,
+                    appTheme = appTheme,
+                    vaccineRemindersEnabled = vaccineRemindersEnabled,
+                    exportMessage = exportMessage,
+                    isExporting = isExporting,
+                    contentPadding = innerPadding,
+                    onSaveProfile = viewModel::saveProfile,
+                    onThemeModeChange = viewModel::setThemeMode,
+                    onAppThemeChange = viewModel::setAppTheme,
+                    onVaccineRemindersChange = viewModel::setVaccineRemindersEnabled,
+                    onExportCsv = viewModel::exportCsv,
+                    onExportPdf = viewModel::exportPdf,
+                    onClearExportMessage = viewModel::clearExportMessage,
+                )
             }
         }
     }

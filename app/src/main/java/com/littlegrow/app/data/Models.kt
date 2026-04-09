@@ -14,6 +14,13 @@ enum class ThemeMode(val label: String) {
     DARK("深色"),
 }
 
+enum class AppTheme(val label: String) {
+    EARTHY("大地自然"),
+    PEACH("奶油蜜桃"),
+    MINT("清新薄荷"),
+    LAVENDER("薰衣紫雾"),
+}
+
 enum class FeedingType(val label: String) {
     BREAST_LEFT("母乳左侧"),
     BREAST_RIGHT("母乳右侧"),

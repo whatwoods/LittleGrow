@@ -303,7 +303,7 @@ fun SettingsScreen(
                     Text("关于", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text("版本 ${BuildConfig.VERSION_NAME}")
                     Text(
-                        "当前提供离线宝宝资料、记录编辑/删除、喂养、睡眠、排泄、生长曲线、疫苗计划、提醒设置、CSV/PDF 导出和里程碑时光轴。",
+                        "当前提供离线宝宝资料、母乳计时器、喂养/睡眠/排泄/健康/活动记录、WHO 生长百分位线、疫苗计划、里程碑照片、CSV/PDF 导出和桌面快捷小组件。",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }

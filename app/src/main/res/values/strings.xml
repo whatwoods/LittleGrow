@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">长呀长</string>
+    <string name="widget_name">长呀长快捷记录</string>
     <string name="vaccine_notification_title">疫苗提醒</string>
     <string name="vaccine_notification_message">%1$s 将于 %2$s 到接种日期，建议提前安排。</string>
 </resources>

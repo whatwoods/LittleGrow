@@ -1,23 +1,28 @@
 package com.littlegrow.app
 
 import android.app.Application
+import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.littlegrow.app.data.ActivityDraft
+import com.littlegrow.app.data.ActivityEntity
 import com.littlegrow.app.data.AppDatabase
-import com.littlegrow.app.data.BabyEntity
 import com.littlegrow.app.data.BabyProfile
 import com.littlegrow.app.data.DiaperDraft
 import com.littlegrow.app.data.DiaperEntity
 import com.littlegrow.app.data.FeedingDraft
 import com.littlegrow.app.data.FeedingEntity
+import com.littlegrow.app.data.FeedingType
 import com.littlegrow.app.data.GrowthDraft
 import com.littlegrow.app.data.GrowthEntity
 import com.littlegrow.app.data.HomeSummary
 import com.littlegrow.app.data.LittleGrowRepository
+import com.littlegrow.app.data.MedicalDraft
+import com.littlegrow.app.data.MedicalEntity
 import com.littlegrow.app.data.MilestoneDraft
 import com.littlegrow.app.data.MilestoneEntity
 import com.littlegrow.app.data.PreferencesRepository
@@ -30,6 +35,7 @@ import com.littlegrow.app.data.toProfile
 import com.littlegrow.app.export.writeCsvExport
 import com.littlegrow.app.export.writePdfExport
 import com.littlegrow.app.notifications.VaccineReminderScheduler
+import com.littlegrow.app.widget.LittleGrowWidgetUpdater
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -40,13 +46,24 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.Period
+import java.time.ZoneId
+
+data class BreastfeedingTimerState(
+    val activeType: FeedingType? = null,
+    val startedAtEpochMillis: Long? = null,
+) {
+    val isRunning: Boolean = activeType != null && startedAtEpochMillis != null
+}
 
 class MainViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
     private val repository = LittleGrowRepository(
+        appContext = application,
         database = AppDatabase.getInstance(application),
         preferencesRepository = PreferencesRepository(application),
     )
@@ -54,6 +71,9 @@ class MainViewModel(
     private val selectedRecordTab = MutableStateFlow(RecordTab.FEEDING)
     private val _exportMessage = MutableStateFlow<String?>(null)
     private val _isExporting = MutableStateFlow(false)
+    private val _breastfeedingTimer = MutableStateFlow(BreastfeedingTimerState())
+    private val _pendingDestination = MutableStateFlow<AppDestination?>(null)
+    private val _pendingRecordQuickAction = MutableStateFlow<RecordQuickAction?>(null)
 
     val themeMode: StateFlow<ThemeMode> = repository.themeMode.stateIn(
         scope = viewModelScope,
@@ -99,6 +119,18 @@ class MainViewModel(
         initialValue = emptyList(),
     )
 
+    val medicalRecords: StateFlow<List<MedicalEntity>> = repository.medicalRecords.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList(),
+    )
+
+    val activityRecords: StateFlow<List<ActivityEntity>> = repository.activityRecords.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList(),
+    )
+
     val vaccines: StateFlow<List<VaccineEntity>> = repository.vaccines.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -114,6 +146,9 @@ class MainViewModel(
     val currentRecordTab: StateFlow<RecordTab> = selectedRecordTab.asStateFlow()
     val exportMessage: StateFlow<String?> = _exportMessage.asStateFlow()
     val isExporting: StateFlow<Boolean> = _isExporting.asStateFlow()
+    val breastfeedingTimer: StateFlow<BreastfeedingTimerState> = _breastfeedingTimer.asStateFlow()
+    val pendingDestination: StateFlow<AppDestination?> = _pendingDestination.asStateFlow()
+    val pendingRecordQuickAction: StateFlow<RecordQuickAction?> = _pendingRecordQuickAction.asStateFlow()
 
     val homeSummary: StateFlow<HomeSummary> = combine(
         profile,
@@ -161,7 +196,23 @@ class MainViewModel(
                 repository.seedIfNeeded()
             }
             refreshVaccineReminders()
+            refreshWidgets()
         }
+    }
+
+    fun handleLaunchIntent(intent: Intent?) {
+        val target = intent?.toAppLaunchTarget() ?: return
+        target.recordTab?.let { selectedRecordTab.value = it }
+        _pendingDestination.value = target.destination
+        _pendingRecordQuickAction.value = target.quickAction
+    }
+
+    fun consumePendingDestination() {
+        _pendingDestination.value = null
+    }
+
+    fun consumePendingRecordQuickAction() {
+        _pendingRecordQuickAction.value = null
     }
 
     fun selectRecordTab(tab: RecordTab) {
@@ -169,14 +220,13 @@ class MainViewModel(
     }
 
     fun saveProfile(profile: BabyProfile) {
-        viewModelScope.launch {
+        mutateData(refreshReminders = true) {
             repository.saveProfile(profile)
-            refreshVaccineReminders()
         }
     }
 
     fun addFeeding(draft: FeedingDraft) {
-        viewModelScope.launch {
+        mutateData {
             repository.addFeeding(draft)
         }
     }
@@ -185,19 +235,56 @@ class MainViewModel(
         id: Long,
         draft: FeedingDraft,
     ) {
-        viewModelScope.launch {
+        mutateData {
             repository.saveFeeding(recordId = id, draft = draft)
         }
     }
 
     fun deleteFeeding(id: Long) {
-        viewModelScope.launch {
+        mutateData {
             repository.deleteFeeding(id)
         }
     }
 
+    fun startBreastfeedingTimer(type: FeedingType) {
+        _breastfeedingTimer.value = BreastfeedingTimerState(
+            activeType = type,
+            startedAtEpochMillis = System.currentTimeMillis(),
+        )
+    }
+
+    fun cancelBreastfeedingTimer() {
+        _breastfeedingTimer.value = BreastfeedingTimerState()
+    }
+
+    fun saveBreastfeedingTimer() {
+        val state = _breastfeedingTimer.value
+        val startedAt = state.startedAtEpochMillis ?: return
+        val type = state.activeType ?: return
+        val now = System.currentTimeMillis()
+        val minutes = ((now - startedAt) / 60_000L).toInt().coerceAtLeast(1)
+        val happenedAt = LocalDateTime.ofInstant(
+            Instant.ofEpochMilli(startedAt),
+            ZoneId.systemDefault(),
+        )
+        _breastfeedingTimer.value = BreastfeedingTimerState()
+        mutateData {
+            repository.addFeeding(
+                FeedingDraft(
+                    type = type,
+                    happenedAt = happenedAt,
+                    durationMinutes = minutes,
+                    amountMl = null,
+                    foodName = null,
+                    photoPath = null,
+                    note = null,
+                ),
+            )
+        }
+    }
+
     fun addSleep(draft: SleepDraft) {
-        viewModelScope.launch {
+        mutateData {
             repository.addSleep(draft)
         }
     }
@@ -206,19 +293,19 @@ class MainViewModel(
         id: Long,
         draft: SleepDraft,
     ) {
-        viewModelScope.launch {
+        mutateData {
             repository.saveSleep(recordId = id, draft = draft)
         }
     }
 
     fun deleteSleep(id: Long) {
-        viewModelScope.launch {
+        mutateData {
             repository.deleteSleep(id)
         }
     }
 
     fun addDiaper(draft: DiaperDraft) {
-        viewModelScope.launch {
+        mutateData {
             repository.addDiaper(draft)
         }
     }
@@ -227,19 +314,19 @@ class MainViewModel(
         id: Long,
         draft: DiaperDraft,
     ) {
-        viewModelScope.launch {
+        mutateData {
             repository.saveDiaper(recordId = id, draft = draft)
         }
     }
 
     fun deleteDiaper(id: Long) {
-        viewModelScope.launch {
+        mutateData {
             repository.deleteDiaper(id)
         }
     }
 
     fun addGrowth(draft: GrowthDraft) {
-        viewModelScope.launch {
+        mutateData {
             repository.addGrowth(draft)
         }
     }
@@ -248,19 +335,19 @@ class MainViewModel(
         id: Long,
         draft: GrowthDraft,
     ) {
-        viewModelScope.launch {
+        mutateData {
             repository.saveGrowth(recordId = id, draft = draft)
         }
     }
 
     fun deleteGrowth(id: Long) {
-        viewModelScope.launch {
+        mutateData {
             repository.deleteGrowth(id)
         }
     }
 
     fun addMilestone(draft: MilestoneDraft) {
-        viewModelScope.launch {
+        mutateData {
             repository.addMilestone(draft)
         }
     }
@@ -269,14 +356,56 @@ class MainViewModel(
         id: Long,
         draft: MilestoneDraft,
     ) {
-        viewModelScope.launch {
+        mutateData {
             repository.saveMilestone(recordId = id, draft = draft)
         }
     }
 
     fun deleteMilestone(id: Long) {
-        viewModelScope.launch {
+        mutateData {
             repository.deleteMilestone(id)
+        }
+    }
+
+    fun addMedical(draft: MedicalDraft) {
+        mutateData {
+            repository.addMedical(draft)
+        }
+    }
+
+    fun updateMedical(
+        id: Long,
+        draft: MedicalDraft,
+    ) {
+        mutateData {
+            repository.saveMedical(recordId = id, draft = draft)
+        }
+    }
+
+    fun deleteMedical(id: Long) {
+        mutateData {
+            repository.deleteMedical(id)
+        }
+    }
+
+    fun addActivity(draft: ActivityDraft) {
+        mutateData {
+            repository.addActivity(draft)
+        }
+    }
+
+    fun updateActivity(
+        id: Long,
+        draft: ActivityDraft,
+    ) {
+        mutateData {
+            repository.saveActivity(recordId = id, draft = draft)
+        }
+    }
+
+    fun deleteActivity(id: Long) {
+        mutateData {
+            repository.deleteActivity(id)
         }
     }
 
@@ -284,9 +413,8 @@ class MainViewModel(
         scheduleKey: String,
         isDone: Boolean,
     ) {
-        viewModelScope.launch {
+        mutateData(refreshReminders = true) {
             repository.setVaccineStatus(scheduleKey, isDone)
-            refreshVaccineReminders()
         }
     }
 
@@ -317,12 +445,31 @@ class MainViewModel(
         _exportMessage.value = null
     }
 
+    private fun mutateData(
+        refreshReminders: Boolean = false,
+        block: suspend () -> Unit,
+    ) {
+        viewModelScope.launch {
+            block()
+            if (refreshReminders) {
+                refreshVaccineReminders()
+            }
+            refreshWidgets()
+        }
+    }
+
     private suspend fun refreshVaccineReminders() {
         VaccineReminderScheduler.rescheduleAll(
             context = getApplication(),
             vaccines = repository.vaccines.first(),
             enabled = repository.vaccineRemindersEnabled.first(),
         )
+    }
+
+    private suspend fun refreshWidgets() {
+        runCatching {
+            LittleGrowWidgetUpdater.updateAll(getApplication())
+        }
     }
 
     private fun exportFile(

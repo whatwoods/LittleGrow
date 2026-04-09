@@ -1,11 +1,15 @@
 package com.littlegrow.app.data
 
+import android.content.Context
+import android.os.Environment
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import java.io.File
 import java.time.LocalDate
 import java.time.LocalDateTime
 
 class LittleGrowRepository(
+    private val appContext: Context,
     private val database: AppDatabase,
     private val preferencesRepository: PreferencesRepository,
 ) {
@@ -15,6 +19,8 @@ class LittleGrowRepository(
     val diapers: Flow<List<DiaperEntity>> = database.diaperDao().observeAll()
     val growthRecords: Flow<List<GrowthEntity>> = database.growthDao().observeAll()
     val milestones: Flow<List<MilestoneEntity>> = database.milestoneDao().observeAll()
+    val medicalRecords: Flow<List<MedicalEntity>> = database.medicalDao().observeAll()
+    val activityRecords: Flow<List<ActivityEntity>> = database.activityDao().observeAll()
     val vaccines: Flow<List<VaccineEntity>> = database.vaccineDao().observeAll()
     val themeMode: Flow<ThemeMode> = preferencesRepository.themeMode
     val vaccineRemindersEnabled: Flow<Boolean> = preferencesRepository.vaccineRemindersEnabled
@@ -34,6 +40,11 @@ class LittleGrowRepository(
         recordId: Long?,
         draft: FeedingDraft,
     ) {
+        val existing = recordId?.let { database.feedingDao().getById(it) }
+        val normalizedPhoto = draft.photoPath?.trim()?.takeIf { it.isNotEmpty() }
+        if (existing?.photoPath != null && existing.photoPath != normalizedPhoto) {
+            deleteManagedPhoto(existing.photoPath)
+        }
         database.feedingDao().upsert(
             FeedingEntity(
                 id = recordId ?: 0,
@@ -42,6 +53,7 @@ class LittleGrowRepository(
                 durationMinutes = draft.durationMinutes,
                 amountMl = draft.amountMl,
                 foodName = draft.foodName?.trim()?.takeIf { it.isNotEmpty() },
+                photoPath = normalizedPhoto,
                 note = draft.note?.trim()?.takeIf { it.isNotEmpty() },
             ),
         )
@@ -52,7 +64,9 @@ class LittleGrowRepository(
     }
 
     suspend fun deleteFeeding(id: Long) {
+        val existing = database.feedingDao().getById(id)
         database.feedingDao().deleteById(id)
+        deleteManagedPhoto(existing?.photoPath)
     }
 
     suspend fun saveSleep(
@@ -128,12 +142,18 @@ class LittleGrowRepository(
         recordId: Long?,
         draft: MilestoneDraft,
     ) {
+        val existing = recordId?.let { database.milestoneDao().getById(it) }
+        val normalizedPhoto = draft.photoPath?.trim()?.takeIf { it.isNotEmpty() }
+        if (existing?.photoPath != null && existing.photoPath != normalizedPhoto) {
+            deleteManagedPhoto(existing.photoPath)
+        }
         database.milestoneDao().upsert(
             MilestoneEntity(
                 id = recordId ?: 0,
                 title = draft.title.trim(),
                 category = draft.category,
                 achievedDate = draft.achievedDate,
+                photoPath = normalizedPhoto,
                 note = draft.note?.trim()?.takeIf { it.isNotEmpty() },
             ),
         )
@@ -144,7 +164,57 @@ class LittleGrowRepository(
     }
 
     suspend fun deleteMilestone(id: Long) {
+        val existing = database.milestoneDao().getById(id)
         database.milestoneDao().deleteById(id)
+        deleteManagedPhoto(existing?.photoPath)
+    }
+
+    suspend fun saveMedical(
+        recordId: Long?,
+        draft: MedicalDraft,
+    ) {
+        database.medicalDao().upsert(
+            MedicalEntity(
+                id = recordId ?: 0,
+                happenedAt = draft.happenedAt,
+                type = draft.type,
+                title = draft.title.trim(),
+                temperatureC = draft.temperatureC,
+                dosage = draft.dosage?.trim()?.takeIf { it.isNotEmpty() },
+                note = draft.note?.trim()?.takeIf { it.isNotEmpty() },
+            ),
+        )
+    }
+
+    suspend fun addMedical(draft: MedicalDraft) {
+        saveMedical(recordId = null, draft = draft)
+    }
+
+    suspend fun deleteMedical(id: Long) {
+        database.medicalDao().deleteById(id)
+    }
+
+    suspend fun saveActivity(
+        recordId: Long?,
+        draft: ActivityDraft,
+    ) {
+        database.activityDao().upsert(
+            ActivityEntity(
+                id = recordId ?: 0,
+                happenedAt = draft.happenedAt,
+                type = draft.type,
+                durationMinutes = draft.durationMinutes,
+                note = draft.note?.trim()?.takeIf { it.isNotEmpty() },
+            ),
+        )
+    }
+
+    suspend fun addActivity(draft: ActivityDraft) {
+        saveActivity(recordId = null, draft = draft)
+    }
+
+    suspend fun deleteActivity(id: Long) {
+        database.activityDao().deleteById(id)
     }
 
     fun setThemeMode(mode: ThemeMode) {
@@ -182,6 +252,8 @@ class LittleGrowRepository(
             diapers = diapers.first(),
             growthRecords = growthRecords.first(),
             milestones = milestones.first(),
+            medicalRecords = medicalRecords.first(),
+            activityRecords = activityRecords.first(),
             vaccines = vaccines.first(),
         )
     }
@@ -220,12 +292,42 @@ class LittleGrowRepository(
                 headCircCm = 41.0f,
             ),
         )
+        addFeeding(
+            FeedingDraft(
+                type = FeedingType.BOTTLE_BREAST_MILK,
+                happenedAt = LocalDateTime.now().minusHours(3),
+                durationMinutes = null,
+                amountMl = 120,
+                foodName = null,
+                photoPath = null,
+                note = "下午奶",
+            ),
+        )
         addMilestone(
             MilestoneDraft(
                 title = "会追视玩具了",
                 category = MilestoneCategory.COGNITIVE,
                 achievedDate = today.minusDays(6),
+                photoPath = null,
                 note = "会盯着摇铃看很久。",
+            ),
+        )
+        addMedical(
+            MedicalDraft(
+                happenedAt = LocalDateTime.now().minusDays(2),
+                type = MedicalRecordType.ILLNESS,
+                title = "轻微鼻塞",
+                temperatureC = 37.6f,
+                dosage = null,
+                note = "多喝奶、多观察。",
+            ),
+        )
+        addActivity(
+            ActivityDraft(
+                happenedAt = LocalDateTime.now().minusDays(1),
+                type = ActivityType.OUTDOOR,
+                durationMinutes = 35,
+                note = "楼下晒太阳。",
             ),
         )
         setVaccineStatus("hepb_1", true, birthday)
@@ -233,5 +335,23 @@ class LittleGrowRepository(
         setVaccineStatus("hepb_2", true, birthday.plusMonths(1))
         setVaccineStatus("polio_1", true, birthday.plusMonths(2))
         setVaccineStatus("dtap_1", true, birthday.plusMonths(3))
+    }
+
+    private fun deleteManagedPhoto(path: String?) {
+        if (path.isNullOrBlank()) return
+        val file = File(path)
+        val target = runCatching { file.canonicalFile }.getOrNull() ?: return
+        if (!isManagedPhoto(target)) return
+        runCatching { target.delete() }
+    }
+
+    private fun isManagedPhoto(file: File): Boolean {
+        val managedRoots = buildList {
+            add(appContext.filesDir)
+            appContext.getExternalFilesDir(Environment.DIRECTORY_PICTURES)?.let(::add)
+        }.mapNotNull { runCatching { it.canonicalFile }.getOrNull() }
+        return managedRoots.any { root ->
+            file.path.startsWith(root.path)
+        }
     }
 }

@@ -27,22 +27,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.littlegrow.app.data.BabyProfile
 import com.littlegrow.app.data.GrowthDraft
 import com.littlegrow.app.data.GrowthEntity
 import com.littlegrow.app.data.GrowthMetric
 import com.littlegrow.app.data.VaccineEntity
+import com.littlegrow.app.data.WhoGrowthStandards
 import com.littlegrow.app.ui.dateFormatter
 import com.littlegrow.app.ui.formatDate
 import com.littlegrow.app.ui.formatMetric
@@ -51,6 +55,7 @@ import java.time.temporal.ChronoUnit
 
 @Composable
 fun GrowthScreen(
+    profile: BabyProfile?,
     growthRecords: List<GrowthEntity>,
     vaccines: List<VaccineEntity>,
     contentPadding: PaddingValues,
@@ -83,7 +88,7 @@ fun GrowthScreen(
                     ) {
                         Text("成长发育", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text(
-                            "用最少字段先把体重、身高和头围沉淀下来。曲线按本地数据即时绘制。",
+                            "体重、身高和头围会叠加 WHO 官方百分位参考线，方便在就诊时快速说明趋势。",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -107,6 +112,7 @@ fun GrowthScreen(
 
             item {
                 GrowthChartCard(
+                    profile = profile,
                     records = growthRecords,
                     metric = metric,
                 )
@@ -133,10 +139,12 @@ fun GrowthScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.End,
                             ) {
-                                TextButton(onClick = { 
-                                    editingGrowth = growth
-                                    showDialog = true
-                                }) {
+                                TextButton(
+                                    onClick = {
+                                        editingGrowth = growth
+                                        showDialog = true
+                                    },
+                                ) {
                                     Text("编辑")
                                 }
                                 TextButton(onClick = { onDeleteGrowth(growth.id) }) {
@@ -181,9 +189,9 @@ fun GrowthScreen(
     if (showDialog) {
         AddGrowthDialog(
             initial = editingGrowth,
-            onDismiss = { 
+            onDismiss = {
                 editingGrowth = null
-                showDialog = false 
+                showDialog = false
             },
             onSubmit = { draft ->
                 val editing = editingGrowth
@@ -232,10 +240,7 @@ private fun VaccineCard(
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text(
-                "${vaccine.vaccineName} · 第 ${vaccine.doseNumber} 针",
-                fontWeight = FontWeight.SemiBold,
-            )
+            Text("${vaccine.vaccineName} · 第 ${vaccine.doseNumber} 针", fontWeight = FontWeight.SemiBold)
             Text("建议日期 ${vaccine.scheduledDate.formatDate()}")
             val statusText = if (vaccine.isDone) {
                 val actual = vaccine.actualDate?.formatDate() ?: vaccine.scheduledDate.formatDate()
@@ -263,9 +268,7 @@ private fun VaccineCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            OutlinedButton(
-                onClick = { onToggleDone(vaccine.scheduleKey, !vaccine.isDone) },
-            ) {
+            OutlinedButton(onClick = { onToggleDone(vaccine.scheduleKey, !vaccine.isDone) }) {
                 Text(if (vaccine.isDone) "撤销已接种" else "标记已接种")
             }
         }
@@ -274,23 +277,39 @@ private fun VaccineCard(
 
 @Composable
 private fun GrowthChartCard(
+    profile: BabyProfile?,
     records: List<GrowthEntity>,
     metric: GrowthMetric,
 ) {
-    val points = remember(records, metric) {
-        records.sortedBy { it.date }.mapNotNull { entity ->
-            val value = when (metric) {
-                GrowthMetric.WEIGHT -> entity.weightKg
-                GrowthMetric.HEIGHT -> entity.heightCm
-                GrowthMetric.HEAD -> entity.headCircCm
-            }
-            value?.let { entity.date to it }
-        }
+    val context = LocalContext.current
+    val measurementPoints = remember(profile, records, metric) {
+        buildMeasurementPoints(profile, records, metric)
+    }
+    val reference = remember(profile?.gender, metric) {
+        profile?.let { WhoGrowthStandards.load(context, it.gender, metric) }
+    }
+    val visibleMaxAgeDays = remember(profile, measurementPoints) {
+        determineChartWindowDays(profile, measurementPoints)
+    }
+    val visibleReferencePoints = remember(reference, visibleMaxAgeDays) {
+        reference?.points?.filter { it.ageDays <= visibleMaxAgeDays }.orEmpty()
+    }
+    val latestBand = remember(reference, measurementPoints) {
+        val latest = measurementPoints.lastOrNull() ?: return@remember null
+        reference?.percentileBand(latest.first, latest.second)
     }
 
     ElevatedCard {
         val primaryColor = MaterialTheme.colorScheme.primary
         val accentColor = MaterialTheme.colorScheme.tertiary
+        val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+        val referenceColors = listOf(
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f),
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f),
+            MaterialTheme.colorScheme.outline,
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f),
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f),
+        )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -298,56 +317,110 @@ private fun GrowthChartCard(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("${metric.label}趋势", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            if (points.size < 2) {
-                Text("至少需要两条 ${metric.label} 数据才能画出趋势。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (measurementPoints.isEmpty() && profile == null) {
+                Text("先填写宝宝生日和性别，再补一条生长记录，这里会叠加 WHO 百分位线。", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
+                val yCandidates = buildList {
+                    addAll(measurementPoints.map { it.second })
+                    visibleReferencePoints.forEach { point ->
+                        add(point.p3)
+                        add(point.p15)
+                        add(point.p50)
+                        add(point.p85)
+                        add(point.p97)
+                    }
+                }
+                val minY = (yCandidates.minOrNull() ?: 0f) - when (metric) {
+                    GrowthMetric.WEIGHT -> 0.5f
+                    GrowthMetric.HEIGHT, GrowthMetric.HEAD -> 1f
+                }
+                val maxY = (yCandidates.maxOrNull() ?: 1f) + when (metric) {
+                    GrowthMetric.WEIGHT -> 0.5f
+                    GrowthMetric.HEIGHT, GrowthMetric.HEAD -> 1f
+                }
                 Canvas(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(220.dp),
+                        .height(260.dp),
                 ) {
-                    val minY = points.minOf { it.second }
-                    val maxY = points.maxOf { it.second }
-                    val spread = (maxY - minY).takeIf { it > 0f } ?: 1f
                     val width = size.width
                     val height = size.height
-                    val horizontalPadding = 28f
-                    val verticalPadding = 20f
-
-                    val chartPoints = points.mapIndexed { index, (_, value) ->
-                        val x = if (points.size == 1) {
-                            width / 2f
-                        } else {
-                            horizontalPadding + index * ((width - horizontalPadding * 2) / (points.lastIndex.coerceAtLeast(1)))
-                        }
-                        val normalized = (value - minY) / spread
-                        val y = height - verticalPadding - normalized * (height - verticalPadding * 2)
-                        Offset(x, y)
-                    }
-
-                    val path = Path().apply {
-                        chartPoints.forEachIndexed { index, offset ->
-                            if (index == 0) moveTo(offset.x, offset.y) else lineTo(offset.x, offset.y)
-                        }
-                    }
-
-                    drawPath(
-                        path = path,
-                        color = primaryColor,
-                        style = Stroke(width = 8f, cap = StrokeCap.Round),
-                    )
-                    chartPoints.forEach { point ->
-                        drawCircle(
-                            color = accentColor,
-                            radius = 10f,
-                            center = point,
+                    val horizontalPadding = 32f
+                    val verticalPadding = 24f
+                    val ySpread = (maxY - minY).takeIf { it > 0f } ?: 1f
+                    val chartWidth = width - horizontalPadding * 2
+                    val chartHeight = height - verticalPadding * 2
+                    fun project(ageDays: Int, value: Float): Offset {
+                        val xProgress = ageDays.toFloat() / visibleMaxAgeDays.coerceAtLeast(1)
+                        val yProgress = (value - minY) / ySpread
+                        return Offset(
+                            x = horizontalPadding + chartWidth * xProgress,
+                            y = height - verticalPadding - chartHeight * yProgress,
                         )
+                    }
+
+                    repeat(4) { index ->
+                        val y = verticalPadding + chartHeight * index / 3f
+                        drawLine(
+                            color = gridColor,
+                            start = Offset(horizontalPadding, y),
+                            end = Offset(width - horizontalPadding, y),
+                            strokeWidth = 2f,
+                        )
+                    }
+
+                    if (visibleReferencePoints.isNotEmpty()) {
+                        reference?.percentiles?.forEachIndexed { index, percentile ->
+                            val path = Path().apply {
+                                visibleReferencePoints.forEachIndexed { pointIndex, point ->
+                                    val offset = project(point.ageDays, point.valueFor(percentile))
+                                    if (pointIndex == 0) moveTo(offset.x, offset.y) else lineTo(offset.x, offset.y)
+                                }
+                            }
+                            drawPath(
+                                path = path,
+                                color = referenceColors[index],
+                                style = Stroke(
+                                    width = if (percentile == 50) 4f else 2.5f,
+                                    pathEffect = if (percentile == 50) null else PathEffect.dashPathEffect(floatArrayOf(10f, 10f)),
+                                    cap = StrokeCap.Round,
+                                ),
+                            )
+                        }
+                    }
+
+                    if (measurementPoints.isNotEmpty()) {
+                        val measurementPath = Path().apply {
+                            measurementPoints.forEachIndexed { index, point ->
+                                val offset = project(point.first, point.second)
+                                if (index == 0) moveTo(offset.x, offset.y) else lineTo(offset.x, offset.y)
+                            }
+                        }
+                        if (measurementPoints.size > 1) {
+                            drawPath(
+                                path = measurementPath,
+                                color = primaryColor,
+                                style = Stroke(width = 8f, cap = StrokeCap.Round),
+                            )
+                        }
+                        measurementPoints.forEach { point ->
+                            drawCircle(color = accentColor, radius = 9f, center = project(point.first, point.second))
+                        }
                     }
                 }
                 Text(
-                    "起点 ${points.first().first.formatDate()} · 终点 ${points.last().first.formatDate()} · 最新 ${points.last().second.formatMetric(metric)}",
+                    when {
+                        latestBand != null -> "最新 ${metric.label} 约位于 WHO $latestBand。"
+                        profile == null -> "补充宝宝资料后，会叠加 WHO 官方百分位线。"
+                        else -> "WHO 百分位线显示为 P3 / P15 / P50 / P85 / P97。"
+                    },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (metric == GrowthMetric.HEIGHT) {
+                    Text("身高参考线采用 WHO 0-5 岁身长/身高标准；2 岁前主要对应身长。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text("参考线来源为 WHO Child Growth Standards 0-5 岁百分位表。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }
@@ -404,9 +477,7 @@ private fun AddGrowthDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                 )
-                errorText?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error)
-                }
+                errorText?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
@@ -422,14 +493,7 @@ private fun AddGrowthDialog(
                         if (weightValue == null && heightValue == null && headValue == null) {
                             errorText = "至少填写一项生长数据。"
                         } else {
-                            onSubmit(
-                                GrowthDraft(
-                                    date = parsedDate,
-                                    weightKg = weightValue,
-                                    heightCm = heightValue,
-                                    headCircCm = headValue,
-                                ),
-                            )
+                            onSubmit(GrowthDraft(parsedDate, weightValue, heightValue, headValue))
                         }
                     }
                 },
@@ -443,4 +507,37 @@ private fun AddGrowthDialog(
             }
         },
     )
+}
+
+private fun buildMeasurementPoints(
+    profile: BabyProfile?,
+    records: List<GrowthEntity>,
+    metric: GrowthMetric,
+): List<Pair<Int, Float>> {
+    if (profile == null) return emptyList()
+    return records
+        .sortedBy { it.date }
+        .mapNotNull { record ->
+            val ageDays = ChronoUnit.DAYS.between(profile.birthday, record.date).toInt()
+            val value = when (metric) {
+                GrowthMetric.WEIGHT -> record.weightKg
+                GrowthMetric.HEIGHT -> record.heightCm
+                GrowthMetric.HEAD -> record.headCircCm
+            }
+            if (ageDays < 0 || value == null) null else ageDays to value
+        }
+}
+
+private fun determineChartWindowDays(
+    profile: BabyProfile?,
+    points: List<Pair<Int, Float>>,
+): Int {
+    val currentAgeDays = profile?.let { ChronoUnit.DAYS.between(it.birthday, LocalDate.now()).toInt() } ?: 0
+    val relevantAge = maxOf(currentAgeDays, points.maxOfOrNull { it.first } ?: 0)
+    return when {
+        relevantAge <= 180 -> 180
+        relevantAge <= 365 -> 365
+        relevantAge <= 730 -> 730
+        else -> 1_856
+    }
 }

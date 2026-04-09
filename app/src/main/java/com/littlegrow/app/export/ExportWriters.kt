@@ -42,7 +42,7 @@ fun buildCsv(snapshot: ExportSnapshot): String {
 
         appendCsvSection(
             title = "喂养记录",
-            headers = listOf("时间", "类型", "时长(分钟)", "奶量(ml)", "食材", "备注"),
+            headers = listOf("时间", "类型", "时长(分钟)", "奶量(ml)", "食材", "照片路径", "备注"),
             rows = snapshot.feedings.map { feeding ->
                 listOf(
                     feeding.happenedAt.format(exportDateTimeFormatter),
@@ -50,6 +50,7 @@ fun buildCsv(snapshot: ExportSnapshot): String {
                     feeding.durationMinutes?.toString().orEmpty(),
                     feeding.amountMl?.toString().orEmpty(),
                     feeding.foodName.orEmpty(),
+                    feeding.photoPath.orEmpty(),
                     feeding.note.orEmpty(),
                 )
             },
@@ -97,13 +98,42 @@ fun buildCsv(snapshot: ExportSnapshot): String {
 
         appendCsvSection(
             title = "里程碑",
-            headers = listOf("日期", "分类", "标题", "备注"),
+            headers = listOf("日期", "分类", "标题", "照片路径", "备注"),
             rows = snapshot.milestones.map { milestone ->
                 listOf(
                     milestone.achievedDate.format(exportDateFormatter),
                     milestone.category.label,
                     milestone.title,
+                    milestone.photoPath.orEmpty(),
                     milestone.note.orEmpty(),
+                )
+            },
+        )
+
+        appendCsvSection(
+            title = "健康记录",
+            headers = listOf("时间", "类型", "标题", "体温(℃)", "剂量/用法", "备注"),
+            rows = snapshot.medicalRecords.map { record ->
+                listOf(
+                    record.happenedAt.format(exportDateTimeFormatter),
+                    record.type.label,
+                    record.title,
+                    record.temperatureC?.toString().orEmpty(),
+                    record.dosage.orEmpty(),
+                    record.note.orEmpty(),
+                )
+            },
+        )
+
+        appendCsvSection(
+            title = "活动记录",
+            headers = listOf("时间", "类型", "时长(分钟)", "备注"),
+            rows = snapshot.activityRecords.map { record ->
+                listOf(
+                    record.happenedAt.format(exportDateTimeFormatter),
+                    record.type.label,
+                    record.durationMinutes?.toString().orEmpty(),
+                    record.note.orEmpty(),
                 )
             },
         )
@@ -226,6 +256,7 @@ private fun buildPdfLines(snapshot: ExportSnapshot): List<PdfLine> {
                     feeding.durationMinutes?.let { " · ${it} 分钟" }.orEmpty() +
                     feeding.amountMl?.let { " · ${it} ml" }.orEmpty() +
                     feeding.foodName?.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty() +
+                    feeding.photoPath?.takeIf { it.isNotBlank() }?.let { " · 已附照片" }.orEmpty() +
                     feeding.note?.takeIf { it.isNotBlank() }?.let { " · 备注：$it" }.orEmpty(),
                 PdfLineStyle.Body,
             )
@@ -283,7 +314,37 @@ private fun buildPdfLines(snapshot: ExportSnapshot): List<PdfLine> {
             lines += PdfLine(
                 "${index + 1}. ${milestone.achievedDate.format(exportDateFormatter)} · ${milestone.category.label} · " +
                     milestone.title +
+                    milestone.photoPath?.takeIf { it.isNotBlank() }?.let { " · 已附照片" }.orEmpty() +
                     milestone.note?.takeIf { it.isNotBlank() }?.let { " · 备注：$it" }.orEmpty(),
+                PdfLineStyle.Body,
+            )
+        }
+    }
+
+    lines += PdfLine("健康记录（${snapshot.medicalRecords.size} 条）", PdfLineStyle.Section)
+    if (snapshot.medicalRecords.isEmpty()) {
+        lines += PdfLine("暂无健康记录。", PdfLineStyle.Body)
+    } else {
+        snapshot.medicalRecords.forEachIndexed { index, record ->
+            lines += PdfLine(
+                "${index + 1}. ${record.happenedAt.format(exportDateTimeFormatter)} · ${record.type.label} · ${record.title}" +
+                    record.temperatureC?.let { " · ${it} ℃" }.orEmpty() +
+                    record.dosage?.takeIf { it.isNotBlank() }?.let { " · 用法：$it" }.orEmpty() +
+                    record.note?.takeIf { it.isNotBlank() }?.let { " · 备注：$it" }.orEmpty(),
+                PdfLineStyle.Body,
+            )
+        }
+    }
+
+    lines += PdfLine("活动记录（${snapshot.activityRecords.size} 条）", PdfLineStyle.Section)
+    if (snapshot.activityRecords.isEmpty()) {
+        lines += PdfLine("暂无活动记录。", PdfLineStyle.Body)
+    } else {
+        snapshot.activityRecords.forEachIndexed { index, record ->
+            lines += PdfLine(
+                "${index + 1}. ${record.happenedAt.format(exportDateTimeFormatter)} · ${record.type.label}" +
+                    record.durationMinutes?.let { " · ${it} 分钟" }.orEmpty() +
+                    record.note?.takeIf { it.isNotBlank() }?.let { " · 备注：$it" }.orEmpty(),
                 PdfLineStyle.Body,
             )
         }

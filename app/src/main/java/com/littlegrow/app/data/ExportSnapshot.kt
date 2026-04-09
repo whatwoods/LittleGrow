@@ -10,6 +10,8 @@ data class ExportSnapshot(
     val diapers: List<DiaperEntity>,
     val growthRecords: List<GrowthEntity>,
     val milestones: List<MilestoneEntity>,
+    val medicalRecords: List<MedicalEntity>,
+    val activityRecords: List<ActivityEntity>,
     val vaccines: List<VaccineEntity>,
 )
 

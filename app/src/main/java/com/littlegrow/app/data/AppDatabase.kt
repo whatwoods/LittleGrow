@@ -37,6 +37,7 @@ data class FeedingEntity(
     val durationMinutes: Int?,
     val amountMl: Int?,
     val foodName: String?,
+    val photoPath: String?,
     val note: String?,
 )
 
@@ -85,6 +86,33 @@ data class MilestoneEntity(
     val title: String,
     val category: MilestoneCategory,
     val achievedDate: LocalDate,
+    val photoPath: String?,
+    val note: String?,
+)
+
+@Entity(
+    tableName = "medical_records",
+    indices = [Index("happenedAt"), Index("type")],
+)
+data class MedicalEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val happenedAt: LocalDateTime,
+    val type: MedicalRecordType,
+    val title: String,
+    val temperatureC: Float?,
+    val dosage: String?,
+    val note: String?,
+)
+
+@Entity(
+    tableName = "activity_records",
+    indices = [Index("happenedAt"), Index("type")],
+)
+data class ActivityEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val happenedAt: LocalDateTime,
+    val type: ActivityType,
+    val durationMinutes: Int?,
     val note: String?,
 )
 
@@ -150,6 +178,19 @@ class LittleGrowConverters {
     @TypeConverter
     fun stringToMilestoneCategory(value: String?): MilestoneCategory? =
         value?.let(MilestoneCategory::valueOf)
+
+    @TypeConverter
+    fun medicalRecordTypeToString(value: MedicalRecordType?): String? = value?.name
+
+    @TypeConverter
+    fun stringToMedicalRecordType(value: String?): MedicalRecordType? =
+        value?.let(MedicalRecordType::valueOf)
+
+    @TypeConverter
+    fun activityTypeToString(value: ActivityType?): String? = value?.name
+
+    @TypeConverter
+    fun stringToActivityType(value: String?): ActivityType? = value?.let(ActivityType::valueOf)
 }
 
 @Dao
@@ -165,6 +206,9 @@ interface BabyDao {
 interface FeedingDao {
     @Query("SELECT * FROM feeding_records ORDER BY happenedAt DESC")
     fun observeAll(): Flow<List<FeedingEntity>>
+
+    @Query("SELECT * FROM feeding_records WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): FeedingEntity?
 
     @Upsert
     suspend fun upsert(record: FeedingEntity)
@@ -214,10 +258,37 @@ interface MilestoneDao {
     @Query("SELECT * FROM milestone_records ORDER BY achievedDate DESC")
     fun observeAll(): Flow<List<MilestoneEntity>>
 
+    @Query("SELECT * FROM milestone_records WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): MilestoneEntity?
+
     @Upsert
     suspend fun upsert(record: MilestoneEntity)
 
     @Query("DELETE FROM milestone_records WHERE id = :id")
+    suspend fun deleteById(id: Long)
+}
+
+@Dao
+interface MedicalDao {
+    @Query("SELECT * FROM medical_records ORDER BY happenedAt DESC")
+    fun observeAll(): Flow<List<MedicalEntity>>
+
+    @Upsert
+    suspend fun upsert(record: MedicalEntity)
+
+    @Query("DELETE FROM medical_records WHERE id = :id")
+    suspend fun deleteById(id: Long)
+}
+
+@Dao
+interface ActivityDao {
+    @Query("SELECT * FROM activity_records ORDER BY happenedAt DESC")
+    fun observeAll(): Flow<List<ActivityEntity>>
+
+    @Upsert
+    suspend fun upsert(record: ActivityEntity)
+
+    @Query("DELETE FROM activity_records WHERE id = :id")
     suspend fun deleteById(id: Long)
 }
 
@@ -253,9 +324,11 @@ interface VaccineDao {
         DiaperEntity::class,
         GrowthEntity::class,
         MilestoneEntity::class,
+        MedicalEntity::class,
+        ActivityEntity::class,
         VaccineEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(LittleGrowConverters::class)
@@ -266,6 +339,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun diaperDao(): DiaperDao
     abstract fun growthDao(): GrowthDao
     abstract fun milestoneDao(): MilestoneDao
+    abstract fun medicalDao(): MedicalDao
+    abstract fun activityDao(): ActivityDao
     abstract fun vaccineDao(): VaccineDao
 
     companion object {
@@ -280,7 +355,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "little_grow.db",
                 )
                     .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                     .also { instance = it }
             }
@@ -306,6 +381,53 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_vaccine_records_isDone` ON `vaccine_records` (`isDone`)",
+                )
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `feeding_records` ADD COLUMN `photoPath` TEXT",
+                )
+                db.execSQL(
+                    "ALTER TABLE `milestone_records` ADD COLUMN `photoPath` TEXT",
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `medical_records` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `happenedAt` TEXT NOT NULL,
+                        `type` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `temperatureC` REAL,
+                        `dosage` TEXT,
+                        `note` TEXT
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_medical_records_happenedAt` ON `medical_records` (`happenedAt`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_medical_records_type` ON `medical_records` (`type`)",
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `activity_records` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `happenedAt` TEXT NOT NULL,
+                        `type` TEXT NOT NULL,
+                        `durationMinutes` INTEGER,
+                        `note` TEXT
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_activity_records_happenedAt` ON `activity_records` (`happenedAt`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_activity_records_type` ON `activity_records` (`type`)",
                 )
             }
         }

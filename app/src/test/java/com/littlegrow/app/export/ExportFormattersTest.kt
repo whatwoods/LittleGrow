@@ -1,6 +1,8 @@
 package com.littlegrow.app.export
 
 import com.littlegrow.app.data.BabyProfile
+import com.littlegrow.app.data.ActivityEntity
+import com.littlegrow.app.data.ActivityType
 import com.littlegrow.app.data.DiaperEntity
 import com.littlegrow.app.data.DiaperType
 import com.littlegrow.app.data.ExportSnapshot
@@ -8,6 +10,8 @@ import com.littlegrow.app.data.FeedingEntity
 import com.littlegrow.app.data.FeedingType
 import com.littlegrow.app.data.Gender
 import com.littlegrow.app.data.GrowthEntity
+import com.littlegrow.app.data.MedicalEntity
+import com.littlegrow.app.data.MedicalRecordType
 import com.littlegrow.app.data.MilestoneCategory
 import com.littlegrow.app.data.MilestoneEntity
 import com.littlegrow.app.data.PoopColor
@@ -37,6 +41,7 @@ class ExportFormattersTest {
                     durationMinutes = null,
                     amountMl = null,
                     foodName = "南瓜泥",
+                    photoPath = "/data/user/0/com.littlegrow.app/files/pictures/food.jpg",
                     note = "说了\"还要\"",
                 ),
             ),
@@ -73,7 +78,28 @@ class ExportFormattersTest {
                     title = "会翻身",
                     category = MilestoneCategory.GROSS_MOTOR,
                     achievedDate = LocalDate.of(2026, 4, 5),
+                    photoPath = "/data/user/0/com.littlegrow.app/files/pictures/milestone.jpg",
                     note = "从俯卧翻到仰卧",
+                ),
+            ),
+            medicalRecords = listOf(
+                MedicalEntity(
+                    id = 1,
+                    happenedAt = LocalDateTime.of(2026, 4, 9, 10, 10),
+                    type = MedicalRecordType.ILLNESS,
+                    title = "鼻塞",
+                    temperatureC = 37.8f,
+                    dosage = null,
+                    note = "精神状态正常",
+                ),
+            ),
+            activityRecords = listOf(
+                ActivityEntity(
+                    id = 1,
+                    happenedAt = LocalDateTime.of(2026, 4, 9, 16, 0),
+                    type = ActivityType.OUTDOOR,
+                    durationMinutes = 35,
+                    note = "楼下散步",
                 ),
             ),
             vaccines = listOf(
@@ -94,5 +120,7 @@ class ExportFormattersTest {
         assertTrue(csv.contains("\"喂养记录\""))
         assertTrue(csv.contains("\"说了\"\"还要\"\"\""))
         assertTrue(csv.contains("\"乙肝疫苗\""))
+        assertTrue(csv.contains("\"健康记录\""))
+        assertTrue(csv.contains("\"活动记录\""))
     }
 }

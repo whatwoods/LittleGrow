@@ -51,10 +51,27 @@ enum class MilestoneCategory(val label: String) {
     COGNITIVE("认知"),
 }
 
+enum class MedicalRecordType(val label: String) {
+    ILLNESS("疾病"),
+    MEDICATION("用药"),
+    ALLERGY("过敏"),
+}
+
+enum class ActivityType(val label: String) {
+    OUTDOOR("户外"),
+    BATH("洗澡"),
+    EARLY_EDUCATION("早教"),
+    TUMMY_TIME("趴玩"),
+    PLAY("玩耍"),
+    OTHER("其他"),
+}
+
 enum class RecordTab(val label: String) {
     FEEDING("喂养"),
     SLEEP("睡眠"),
     DIAPER("排泄"),
+    MEDICAL("健康"),
+    ACTIVITY("活动"),
 }
 
 enum class GrowthMetric(val label: String) {
@@ -88,6 +105,7 @@ data class FeedingDraft(
     val durationMinutes: Int?,
     val amountMl: Int?,
     val foodName: String?,
+    val photoPath: String?,
     val note: String?,
 )
 
@@ -116,5 +134,22 @@ data class MilestoneDraft(
     val title: String,
     val category: MilestoneCategory,
     val achievedDate: LocalDate,
+    val photoPath: String?,
+    val note: String?,
+)
+
+data class MedicalDraft(
+    val happenedAt: LocalDateTime,
+    val type: MedicalRecordType,
+    val title: String,
+    val temperatureC: Float?,
+    val dosage: String?,
+    val note: String?,
+)
+
+data class ActivityDraft(
+    val happenedAt: LocalDateTime,
+    val type: ActivityType,
+    val durationMinutes: Int?,
     val note: String?,
 )

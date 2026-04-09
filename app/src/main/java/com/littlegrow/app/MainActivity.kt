@@ -12,10 +12,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        viewModel.handleLaunchIntent(intent)
         VaccineReminderScheduler.ensureChannel(this)
         enableEdgeToEdge()
         setContent {
             LittleGrowApp(viewModel = viewModel)
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        viewModel.handleLaunchIntent(intent)
     }
 }

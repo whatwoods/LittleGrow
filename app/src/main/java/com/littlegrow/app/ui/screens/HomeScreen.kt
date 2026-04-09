@@ -128,7 +128,17 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                QuickActionChip("健康记录", Modifier.weight(1f)) { onOpenRecords(RecordTab.MEDICAL) }
+                QuickActionChip("活动记录", Modifier.weight(1f)) { onOpenRecords(RecordTab.ACTIVITY) }
                 QuickActionChip("成长曲线", Modifier.weight(1f), onOpenGrowth)
+            }
+        }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 QuickActionChip("里程碑", Modifier.weight(1f), onOpenTimeline)
                 QuickActionChip("宝宝资料", Modifier.weight(1f), onOpenSettings)
             }

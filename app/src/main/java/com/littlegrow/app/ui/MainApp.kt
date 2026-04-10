@@ -221,6 +221,10 @@ fun LittleGrowApp(
         NavHost(
             navController = navController,
             startDestination = AppDestination.HOME.route,
+            enterTransition = { slideIntoContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = androidx.compose.animation.core.spring()) },
+            exitTransition = { slideOutOfContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = androidx.compose.animation.core.spring()) },
+            popEnterTransition = { slideIntoContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = androidx.compose.animation.core.spring()) },
+            popExitTransition = { slideOutOfContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = androidx.compose.animation.core.spring()) },
         ) {
             composable(AppDestination.HOME.route) {
                 HomeScreen(

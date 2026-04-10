@@ -15,10 +15,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarArrangement
@@ -30,6 +32,7 @@ import androidx.compose.material3.WideNavigationRail
 import androidx.compose.material3.WideNavigationRailItem
 import androidx.compose.material3.WideNavigationRailState
 import androidx.compose.material3.WideNavigationRailValue
+import androidx.compose.material3.animateFloatingActionButton
 import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -84,6 +87,7 @@ private const val batchRecordRoutePattern = "batch_records/{tab}"
 
 private fun batchRecordRoute(tab: RecordTab): String = "${AppDestination.BATCH_RECORDS.route}/${tab.name}"
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LittleGrowApp(
     viewModel: MainViewModel,
@@ -184,7 +188,7 @@ fun LittleGrowApp(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                CircularProgressIndicator()
+                LoadingIndicator()
             }
             return
         }
@@ -228,10 +232,13 @@ fun LittleGrowApp(
             SnackbarHost(hostState = snackbarHostState)
         },
         floatingActionButton = {
-            if (!useNavigationRail && showQuickRecordAction) {
+            if (!useNavigationRail) {
                 FloatingActionButton(
                     onClick = { showQuickRecordSheet = true },
-                    shape = androidx.compose.material3.MaterialTheme.shapes.large,
+                    modifier = Modifier.animateFloatingActionButton(
+                        visible = showQuickRecordAction,
+                        alignment = Alignment.BottomEnd,
+                    ),
                 ) {
                     Icon(Icons.Rounded.Add, contentDescription = "添加记录")
                 }
@@ -258,13 +265,14 @@ fun LittleGrowApp(
             }
 
             Box(modifier = Modifier.weight(1f)) {
+                val spatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntOffset>()
                 NavHost(
                     navController = navController,
                     startDestination = AppDestination.HOME.route,
-                    enterTransition = { slideIntoContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = androidx.compose.animation.core.spring()) },
-                    exitTransition = { slideOutOfContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = androidx.compose.animation.core.spring()) },
-                    popEnterTransition = { slideIntoContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = androidx.compose.animation.core.spring()) },
-                    popExitTransition = { slideOutOfContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = androidx.compose.animation.core.spring()) },
+                    enterTransition = { slideIntoContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = spatialSpec) },
+                    exitTransition = { slideOutOfContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = spatialSpec) },
+                    popEnterTransition = { slideIntoContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = spatialSpec) },
+                    popExitTransition = { slideOutOfContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = spatialSpec) },
                 ) {
             composable(AppDestination.HOME.route) {
                 HomeScreen(

@@ -1,9 +1,11 @@
 package com.littlegrow.app.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -266,6 +268,7 @@ private fun appThemeSpec(theme: AppTheme): AppThemeSpec = when (theme) {
 
 fun AppTheme.previewColors(): ThemePreviewColors = appThemeSpec(this).preview
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LittleGrowTheme(
     themeMode: ThemeMode,
@@ -303,10 +306,11 @@ fun LittleGrowTheme(
     CompositionLocalProvider(
         LocalMinimumInteractiveComponentSize provides if (largeTextModeEnabled) 64.dp else 48.dp,
     ) {
-        MaterialTheme(
+        MaterialExpressiveTheme(
             colorScheme = colorScheme,
             typography = typography,
             shapes = Shapes,
+            motionScheme = MotionScheme.expressive(),
             content = content,
         )
     }

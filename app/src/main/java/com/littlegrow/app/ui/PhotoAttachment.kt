@@ -101,29 +101,77 @@ fun rememberManagedPhotoAttachment(
     )
 }
 
+@OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
 @Composable
 fun PhotoPreviewCard(
     filePath: String,
     contentDescription: String,
     modifier: Modifier = Modifier,
 ) {
-    ElevatedCard(modifier = modifier.fillMaxWidth()) {
-        AndroidView(
-            factory = { context ->
-                ImageView(context).apply {
-                    adjustViewBounds = true
-                    scaleType = ImageView.ScaleType.CENTER_CROP
-                    this.contentDescription = contentDescription
+    var isExpanded by rememberSaveable { mutableStateOf(false) }
+
+    androidx.compose.animation.SharedTransitionLayout {
+        androidx.compose.animation.AnimatedContent(
+            targetState = isExpanded,
+            label = "photo_expansion"
+        ) { expanded ->
+            if (expanded) {
+                // Expanded view (covers more space)
+                ElevatedCard(
+                    modifier = modifier
+                        .fillMaxWidth()
+                        .height(400.dp)
+                        .clickable { isExpanded = false }
+                        .sharedElement(
+                            rememberSharedContentState(key = "photo_$filePath"),
+                            animatedVisibilityScope = this@AnimatedContent
+                        )
+                ) {
+                    AndroidView(
+                        factory = { context ->
+                            ImageView(context).apply {
+                                adjustViewBounds = true
+                                scaleType = ImageView.ScaleType.FIT_CENTER
+                                this.contentDescription = contentDescription
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                        update = { imageView ->
+                            imageView.contentDescription = contentDescription
+                            imageView.setImageURI(PhotoStore.toUri(filePath))
+                        },
+                    )
                 }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(160.dp),
-            update = { imageView ->
-                imageView.contentDescription = contentDescription
-                imageView.setImageURI(PhotoStore.toUri(filePath))
-            },
-        )
+            } else {
+                // Thumbnail view
+                ElevatedCard(
+                    modifier = modifier
+                        .fillMaxWidth()
+                        .clickable { isExpanded = true }
+                        .sharedElement(
+                            rememberSharedContentState(key = "photo_$filePath"),
+                            animatedVisibilityScope = this@AnimatedContent
+                        )
+                ) {
+                    AndroidView(
+                        factory = { context ->
+                            ImageView(context).apply {
+                                adjustViewBounds = true
+                                scaleType = ImageView.ScaleType.CENTER_CROP
+                                this.contentDescription = contentDescription
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp),
+                        update = { imageView ->
+                            imageView.contentDescription = contentDescription
+                            imageView.setImageURI(PhotoStore.toUri(filePath))
+                        },
+                    )
+                }
+            }
+        }
     }
 }
 

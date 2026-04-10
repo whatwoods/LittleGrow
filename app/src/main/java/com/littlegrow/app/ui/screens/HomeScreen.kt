@@ -272,7 +272,19 @@ private fun QuickActionGrid(
     onOpenMedicalSummary: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    ElevatedCard(modifier = Modifier.softShadow()) {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    fun triggerHapticAndRun(action: () -> Unit) {
+        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+        action()
+    }
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -284,24 +296,24 @@ private fun QuickActionGrid(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilledTonalButton(onClick = { onOpenRecords(RecordTab.FEEDING) }, modifier = Modifier.weight(1f)) { Text("记喂奶") }
-                FilledTonalButton(onClick = { onOpenRecords(RecordTab.SLEEP) }, modifier = Modifier.weight(1f)) { Text("记睡眠") }
-                FilledTonalButton(onClick = { onOpenRecords(RecordTab.DIAPER) }, modifier = Modifier.weight(1f)) { Text("记尿布") }
+                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenRecords(RecordTab.FEEDING) } }, modifier = Modifier.weight(1f)) { Text("记喂奶") }
+                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenRecords(RecordTab.SLEEP) } }, modifier = Modifier.weight(1f)) { Text("记睡眠") }
+                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenRecords(RecordTab.DIAPER) } }, modifier = Modifier.weight(1f)) { Text("记尿布") }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilledTonalButton(onClick = { onOpenRecords(RecordTab.MEDICAL) }, modifier = Modifier.weight(1f)) { Text("健康") }
-                FilledTonalButton(onClick = onOpenGrowth, modifier = Modifier.weight(1f)) { Text("生长") }
-                FilledTonalButton(onClick = onOpenMedicalSummary, modifier = Modifier.weight(1f)) { Text("就医") }
+                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenRecords(RecordTab.MEDICAL) } }, modifier = Modifier.weight(1f)) { Text("健康") }
+                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenGrowth() } }, modifier = Modifier.weight(1f)) { Text("生长") }
+                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenMedicalSummary() } }, modifier = Modifier.weight(1f)) { Text("就医") }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilledTonalButton(onClick = onOpenTimeline, modifier = Modifier.weight(1f)) { Text("里程碑") }
-                FilledTonalButton(onClick = onOpenSettings, modifier = Modifier.weight(1f)) { Text("设置") }
+                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenTimeline() } }, modifier = Modifier.weight(1f)) { Text("里程碑") }
+                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenSettings() } }, modifier = Modifier.weight(1f)) { Text("设置") }
             }
         }
     }
@@ -536,13 +548,26 @@ private fun SectionCard(
 
 @Composable
 private fun EmptyRecordCard(text: String) {
-    ElevatedCard(modifier = Modifier.softShadow()) {
-        Box(
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(24.dp),
-            contentAlignment = Alignment.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            androidx.compose.material3.Icon(
+                imageVector = androidx.compose.material.icons.Icons.Rounded.FilterVintage,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
             Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -561,7 +586,7 @@ private fun SummaryCard(
     badge: ReferenceBadgeData? = null,
     subtitle: String? = null,
 ) {
-    ElevatedCard(modifier = modifier.softShadow()) {
+    ElevatedCard(modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

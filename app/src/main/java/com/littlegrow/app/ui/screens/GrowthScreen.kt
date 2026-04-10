@@ -411,6 +411,18 @@ private fun GrowthChartCard(
         buildPredictionPoints(measurementPoints, visibleMaxAgeDays)
     }
 
+    var animationPlayed by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(metric) {
+        animationPlayed = false
+        kotlinx.coroutines.delay(50)
+        animationPlayed = true
+    }
+    val animProgress by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (animationPlayed) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 1200, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        label = "chartReveal"
+    )
+
     ElevatedCard {
         val primaryColor = MaterialTheme.colorScheme.primary
         val accentColor = MaterialTheme.colorScheme.tertiary
@@ -510,14 +522,44 @@ private fun GrowthChartCard(
                                 if (index == 0) moveTo(offset.x, offset.y) else lineTo(offset.x, offset.y)
                             }
                         }
+                        
+                        val pathMeasure = androidx.compose.ui.graphics.PathMeasure()
+                        pathMeasure.setPath(measurementPath, false)
+                        val animatedPath = Path()
+                        pathMeasure.getSegment(0f, pathMeasure.length * animProgress, animatedPath, true)
+                        
+                        // Draw gradient fill
+                        val fillPath = Path().apply {
+                            addPath(animatedPath)
+                            if (measurementPoints.isNotEmpty() && animProgress > 0f) {
+                                val firstOffset = project(measurementPoints.first().first, measurementPoints.first().second)
+                                val lastIndex = (measurementPoints.size * animProgress).toInt().coerceAtMost(measurementPoints.size - 1)
+                                val lastOffset = project(measurementPoints[lastIndex].first, measurementPoints[lastIndex].second)
+                                lineTo(lastOffset.x, height - verticalPadding)
+                                lineTo(firstOffset.x, height - verticalPadding)
+                                close()
+                            }
+                        }
+                        
+                        drawPath(
+                            path = fillPath,
+                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                colors = listOf(primaryColor.copy(alpha = 0.4f), androidx.compose.ui.graphics.Color.Transparent),
+                                startY = verticalPadding,
+                                endY = height - verticalPadding
+                            )
+                        )
+
                         if (measurementPoints.size > 1) {
                             drawPath(
-                                path = measurementPath,
+                                path = animatedPath,
                                 color = primaryColor,
                                 style = Stroke(width = 8f, cap = StrokeCap.Round),
                             )
                         }
-                        measurementPoints.forEach { point ->
+                        
+                        val pointsToDraw = (measurementPoints.size * animProgress).toInt()
+                        measurementPoints.take(pointsToDraw + 1).forEach { point ->
                             drawCircle(color = accentColor, radius = 9f, center = project(point.first, point.second))
                         }
                     }
@@ -530,7 +572,7 @@ private fun GrowthChartCard(
                         }
                         drawPath(
                             path = predictionPath,
-                            color = accentColor.copy(alpha = 0.7f),
+                            color = accentColor.copy(alpha = 0.7f * animProgress),
                             style = Stroke(
                                 width = 4f,
                                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f)),

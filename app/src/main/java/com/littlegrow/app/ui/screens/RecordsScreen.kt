@@ -619,8 +619,28 @@ private fun RecordActionRow(onOpenBatchRecord: () -> Unit, onOpenHandoverSummary
 
 @Composable
 fun EmptyRecordCard(text: String, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, tonalElevation = 2.dp, shape = MaterialTheme.shapes.large) {
-        Text(text = text, modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    androidx.compose.material3.Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        shape = androidx.compose.material3.MaterialTheme.shapes.large
+    ) {
+        androidx.compose.foundation.layout.Column(
+            modifier = Modifier.padding(32.dp),
+            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
+        ) {
+            androidx.compose.material3.Icon(
+                imageVector = androidx.compose.material.icons.Icons.Rounded.Inbox,
+                contentDescription = null,
+                modifier = androidx.compose.foundation.layout.size(48.dp),
+                tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
+            androidx.compose.material3.Text(
+                text = text,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium
+            )
+        }
     }
 }
 

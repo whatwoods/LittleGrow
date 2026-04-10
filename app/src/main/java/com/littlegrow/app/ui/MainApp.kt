@@ -192,7 +192,7 @@ fun LittleGrowApp(
             if (currentRoute == AppDestination.HOME.route || currentRoute == AppDestination.RECORDS.route) {
                 FloatingActionButton(
                     onClick = { showQuickRecordSheet = true },
-                    modifier = Modifier.softShadow(),
+                    // removed softShadow
                     shape = androidx.compose.material3.MaterialTheme.shapes.large,
                 ) {
                     Icon(Icons.Rounded.Add, contentDescription = "添加记录")

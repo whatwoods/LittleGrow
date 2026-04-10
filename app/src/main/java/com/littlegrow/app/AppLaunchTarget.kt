@@ -7,8 +7,10 @@ import com.littlegrow.app.data.RecordTab
 enum class AppDestination(val route: String) {
     HOME("home"),
     RECORDS("records"),
+    BATCH_RECORDS("batch_records"),
     GROWTH("growth"),
     TIMELINE("timeline"),
+    MEDICAL_SUMMARY("medical_summary"),
     SETTINGS("settings"),
 }
 

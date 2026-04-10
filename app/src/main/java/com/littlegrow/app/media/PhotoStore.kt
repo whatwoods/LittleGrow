@@ -51,14 +51,18 @@ object PhotoStore {
 
     fun toUri(path: String): Uri = Uri.fromFile(File(path))
 
+    fun attachmentsDirectory(context: Context): File {
+        val picturesDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+            ?: File(context.filesDir, "pictures")
+        return File(picturesDir, "attachments").apply { mkdirs() }
+    }
+
     private fun createManagedFile(
         context: Context,
         prefix: String,
         extension: String,
     ): File {
-        val picturesDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-            ?: File(context.filesDir, "pictures")
-        val directory = File(picturesDir, "attachments").apply { mkdirs() }
+        val directory = attachmentsDirectory(context)
         val safeExtension = extension.lowercase(Locale.US).trim('.').ifBlank { "jpg" }
         return File.createTempFile("${prefix}_", ".$safeExtension", directory)
     }

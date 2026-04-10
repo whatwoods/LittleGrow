@@ -24,6 +24,7 @@ data class BabyEntity(
     val name: String,
     val birthday: LocalDate,
     val gender: Gender,
+    val avatarPath: String? = null,
 )
 
 @Entity(
@@ -39,6 +40,9 @@ data class FeedingEntity(
     val foodName: String?,
     val photoPath: String?,
     val note: String?,
+    val allergyObservation: AllergyStatus = AllergyStatus.NONE,
+    val observationEndDate: LocalDate? = null,
+    val caregiver: String? = null,
 )
 
 @Entity(
@@ -50,6 +54,9 @@ data class SleepEntity(
     val startTime: LocalDateTime,
     val endTime: LocalDateTime,
     val note: String?,
+    val sleepType: SleepType = SleepType.NAP,
+    val fallingAsleepMethod: FallingAsleepMethod? = null,
+    val caregiver: String? = null,
 )
 
 @Entity(
@@ -63,6 +70,8 @@ data class DiaperEntity(
     val poopColor: PoopColor?,
     val poopTexture: PoopTexture?,
     val note: String?,
+    val photoPath: String? = null,
+    val caregiver: String? = null,
 )
 
 @Entity(
@@ -102,6 +111,7 @@ data class MedicalEntity(
     val temperatureC: Float?,
     val dosage: String?,
     val note: String?,
+    val caregiver: String? = null,
 )
 
 @Entity(
@@ -114,6 +124,7 @@ data class ActivityEntity(
     val type: ActivityType,
     val durationMinutes: Int?,
     val note: String?,
+    val caregiver: String? = null,
 )
 
 @Entity(
@@ -124,9 +135,13 @@ data class VaccineEntity(
     @PrimaryKey val scheduleKey: String,
     val vaccineName: String,
     val doseNumber: Int,
+    val category: VaccineCategory = VaccineCategory.NATIONAL,
     val scheduledDate: LocalDate,
     val actualDate: LocalDate?,
     val isDone: Boolean,
+    val reactionNote: String? = null,
+    val hadFever: Boolean = false,
+    val reactionSeverity: ReactionSeverity? = null,
 )
 
 class LittleGrowConverters {
@@ -153,6 +168,12 @@ class LittleGrowConverters {
 
     @TypeConverter
     fun stringToFeedingType(value: String?): FeedingType? = value?.let(FeedingType::valueOf)
+
+    @TypeConverter
+    fun allergyStatusToString(value: AllergyStatus?): String? = value?.name
+
+    @TypeConverter
+    fun stringToAllergyStatus(value: String?): AllergyStatus? = value?.let(AllergyStatus::valueOf)
 
     @TypeConverter
     fun diaperTypeToString(value: DiaperType?): String? = value?.name
@@ -187,6 +208,32 @@ class LittleGrowConverters {
         value?.let(MedicalRecordType::valueOf)
 
     @TypeConverter
+    fun sleepTypeToString(value: SleepType?): String? = value?.name
+
+    @TypeConverter
+    fun stringToSleepType(value: String?): SleepType? = value?.let(SleepType::valueOf)
+
+    @TypeConverter
+    fun fallingAsleepMethodToString(value: FallingAsleepMethod?): String? = value?.name
+
+    @TypeConverter
+    fun stringToFallingAsleepMethod(value: String?): FallingAsleepMethod? =
+        value?.let(FallingAsleepMethod::valueOf)
+
+    @TypeConverter
+    fun reactionSeverityToString(value: ReactionSeverity?): String? = value?.name
+
+    @TypeConverter
+    fun stringToReactionSeverity(value: String?): ReactionSeverity? =
+        value?.let(ReactionSeverity::valueOf)
+
+    @TypeConverter
+    fun vaccineCategoryToString(value: VaccineCategory?): String? = value?.name
+
+    @TypeConverter
+    fun stringToVaccineCategory(value: String?): VaccineCategory? = value?.let(VaccineCategory::valueOf)
+
+    @TypeConverter
     fun activityTypeToString(value: ActivityType?): String? = value?.name
 
     @TypeConverter
@@ -207,14 +254,23 @@ interface FeedingDao {
     @Query("SELECT * FROM feeding_records ORDER BY happenedAt DESC")
     fun observeAll(): Flow<List<FeedingEntity>>
 
+    @Query("SELECT * FROM feeding_records ORDER BY happenedAt DESC")
+    suspend fun getAll(): List<FeedingEntity>
+
     @Query("SELECT * FROM feeding_records WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): FeedingEntity?
 
     @Upsert
     suspend fun upsert(record: FeedingEntity)
 
+    @Upsert
+    suspend fun upsertAll(records: List<FeedingEntity>)
+
     @Query("DELETE FROM feeding_records WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM feeding_records")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -222,11 +278,20 @@ interface SleepDao {
     @Query("SELECT * FROM sleep_records ORDER BY startTime DESC")
     fun observeAll(): Flow<List<SleepEntity>>
 
+    @Query("SELECT * FROM sleep_records ORDER BY startTime DESC")
+    suspend fun getAll(): List<SleepEntity>
+
     @Upsert
     suspend fun upsert(record: SleepEntity)
 
+    @Upsert
+    suspend fun upsertAll(records: List<SleepEntity>)
+
     @Query("DELETE FROM sleep_records WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM sleep_records")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -234,11 +299,20 @@ interface DiaperDao {
     @Query("SELECT * FROM diaper_records ORDER BY happenedAt DESC")
     fun observeAll(): Flow<List<DiaperEntity>>
 
+    @Query("SELECT * FROM diaper_records ORDER BY happenedAt DESC")
+    suspend fun getAll(): List<DiaperEntity>
+
     @Upsert
     suspend fun upsert(record: DiaperEntity)
 
+    @Upsert
+    suspend fun upsertAll(records: List<DiaperEntity>)
+
     @Query("DELETE FROM diaper_records WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM diaper_records")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -246,11 +320,20 @@ interface GrowthDao {
     @Query("SELECT * FROM growth_records ORDER BY date DESC")
     fun observeAll(): Flow<List<GrowthEntity>>
 
+    @Query("SELECT * FROM growth_records ORDER BY date DESC")
+    suspend fun getAll(): List<GrowthEntity>
+
     @Upsert
     suspend fun upsert(record: GrowthEntity)
 
+    @Upsert
+    suspend fun upsertAll(records: List<GrowthEntity>)
+
     @Query("DELETE FROM growth_records WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM growth_records")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -258,14 +341,23 @@ interface MilestoneDao {
     @Query("SELECT * FROM milestone_records ORDER BY achievedDate DESC")
     fun observeAll(): Flow<List<MilestoneEntity>>
 
+    @Query("SELECT * FROM milestone_records ORDER BY achievedDate DESC")
+    suspend fun getAll(): List<MilestoneEntity>
+
     @Query("SELECT * FROM milestone_records WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): MilestoneEntity?
 
     @Upsert
     suspend fun upsert(record: MilestoneEntity)
 
+    @Upsert
+    suspend fun upsertAll(records: List<MilestoneEntity>)
+
     @Query("DELETE FROM milestone_records WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM milestone_records")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -273,11 +365,20 @@ interface MedicalDao {
     @Query("SELECT * FROM medical_records ORDER BY happenedAt DESC")
     fun observeAll(): Flow<List<MedicalEntity>>
 
+    @Query("SELECT * FROM medical_records ORDER BY happenedAt DESC")
+    suspend fun getAll(): List<MedicalEntity>
+
     @Upsert
     suspend fun upsert(record: MedicalEntity)
 
+    @Upsert
+    suspend fun upsertAll(records: List<MedicalEntity>)
+
     @Query("DELETE FROM medical_records WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM medical_records")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -285,11 +386,20 @@ interface ActivityDao {
     @Query("SELECT * FROM activity_records ORDER BY happenedAt DESC")
     fun observeAll(): Flow<List<ActivityEntity>>
 
+    @Query("SELECT * FROM activity_records ORDER BY happenedAt DESC")
+    suspend fun getAll(): List<ActivityEntity>
+
     @Upsert
     suspend fun upsert(record: ActivityEntity)
 
+    @Upsert
+    suspend fun upsertAll(records: List<ActivityEntity>)
+
     @Query("DELETE FROM activity_records WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM activity_records")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -314,6 +424,25 @@ interface VaccineDao {
         isDone: Boolean,
         actualDate: LocalDate?,
     )
+
+    @Query(
+        """
+        UPDATE vaccine_records
+        SET reactionNote = :reactionNote,
+            hadFever = :hadFever,
+            reactionSeverity = :reactionSeverity
+        WHERE scheduleKey = :scheduleKey
+        """,
+    )
+    suspend fun updateReaction(
+        scheduleKey: String,
+        reactionNote: String?,
+        hadFever: Boolean,
+        reactionSeverity: ReactionSeverity?,
+    )
+
+    @Query("DELETE FROM vaccine_records")
+    suspend fun deleteAll()
 }
 
 @Database(
@@ -328,7 +457,7 @@ interface VaccineDao {
         ActivityEntity::class,
         VaccineEntity::class,
     ],
-    version = 3,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(LittleGrowConverters::class)
@@ -355,10 +484,15 @@ abstract class AppDatabase : RoomDatabase() {
                     "little_grow.db",
                 )
                     .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { instance = it }
             }
+        }
+
+        fun closeInstance() {
+            instance?.close()
+            instance = null
         }
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -428,6 +562,61 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_activity_records_type` ON `activity_records` (`type`)",
+                )
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `feeding_records` ADD COLUMN `allergyObservation` TEXT NOT NULL DEFAULT 'NONE'",
+                )
+                db.execSQL(
+                    "ALTER TABLE `feeding_records` ADD COLUMN `observationEndDate` TEXT",
+                )
+                db.execSQL(
+                    "ALTER TABLE `feeding_records` ADD COLUMN `caregiver` TEXT",
+                )
+                db.execSQL(
+                    "ALTER TABLE `sleep_records` ADD COLUMN `sleepType` TEXT NOT NULL DEFAULT 'NAP'",
+                )
+                db.execSQL(
+                    "ALTER TABLE `sleep_records` ADD COLUMN `fallingAsleepMethod` TEXT",
+                )
+                db.execSQL(
+                    "ALTER TABLE `sleep_records` ADD COLUMN `caregiver` TEXT",
+                )
+                db.execSQL(
+                    "ALTER TABLE `diaper_records` ADD COLUMN `photoPath` TEXT",
+                )
+                db.execSQL(
+                    "ALTER TABLE `diaper_records` ADD COLUMN `caregiver` TEXT",
+                )
+                db.execSQL(
+                    "ALTER TABLE `medical_records` ADD COLUMN `caregiver` TEXT",
+                )
+                db.execSQL(
+                    "ALTER TABLE `activity_records` ADD COLUMN `caregiver` TEXT",
+                )
+                db.execSQL(
+                    "ALTER TABLE `vaccine_records` ADD COLUMN `category` TEXT NOT NULL DEFAULT 'NATIONAL'",
+                )
+                db.execSQL(
+                    "ALTER TABLE `vaccine_records` ADD COLUMN `reactionNote` TEXT",
+                )
+                db.execSQL(
+                    "ALTER TABLE `vaccine_records` ADD COLUMN `hadFever` INTEGER NOT NULL DEFAULT 0",
+                )
+                db.execSQL(
+                    "ALTER TABLE `vaccine_records` ADD COLUMN `reactionSeverity` TEXT",
+                )
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `baby_profile` ADD COLUMN `avatarPath` TEXT",
                 )
             }
         }

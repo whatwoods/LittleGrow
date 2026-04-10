@@ -3,4 +3,6 @@
     <string name="widget_name">长呀长快捷记录</string>
     <string name="vaccine_notification_title">疫苗提醒</string>
     <string name="vaccine_notification_message">%1$s 将于 %2$s 到接种日期，建议提前安排。</string>
+    <string name="quick_action_notification_title">长呀长快捷记录</string>
+    <string name="quick_action_notification_message">展开后可直接记喂奶、换尿布和入睡。</string>
 </resources>

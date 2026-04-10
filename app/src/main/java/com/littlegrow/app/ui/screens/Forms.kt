@@ -6,14 +6,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.SideEffect
@@ -25,9 +28,12 @@ import androidx.compose.ui.unit.dp
 import com.littlegrow.app.data.ActivityDraft
 import com.littlegrow.app.data.ActivityEntity
 import com.littlegrow.app.data.ActivityType
+import com.littlegrow.app.data.AllergyStatus
 import com.littlegrow.app.data.DiaperDraft
 import com.littlegrow.app.data.DiaperEntity
 import com.littlegrow.app.data.DiaperType
+import com.littlegrow.app.data.FallingAsleepMethod
+import com.littlegrow.app.data.FeedingFormDefaults
 import com.littlegrow.app.data.FeedingDraft
 import com.littlegrow.app.data.FeedingEntity
 import com.littlegrow.app.data.FeedingType
@@ -38,6 +44,7 @@ import com.littlegrow.app.data.PoopColor
 import com.littlegrow.app.data.PoopTexture
 import com.littlegrow.app.data.SleepDraft
 import com.littlegrow.app.data.SleepEntity
+import com.littlegrow.app.data.SleepType
 import com.littlegrow.app.ui.NativeDateTimePickerField
 import com.littlegrow.app.ui.NativeDurationPickerField
 import com.littlegrow.app.ui.PhotoActionRow
@@ -66,21 +73,52 @@ fun QuickInputRow(onAdd: (Int) -> Unit) {
 }
 
 @Composable
+private fun CaregiverSection(
+    caregivers: List<String>,
+    selected: String,
+    onSelect: (String) -> Unit,
+) {
+    if (caregivers.isEmpty()) return
+    FilterChipSection(
+        title = "记录人",
+        entries = caregivers,
+        selected = selected.ifBlank { caregivers.first() },
+        label = { it },
+        onSelect = onSelect,
+    )
+}
+
+@Composable
 fun AddFeedingForm(
     initial: FeedingEntity?,
+    defaults: FeedingFormDefaults = FeedingFormDefaults(),
+    caregivers: List<String> = emptyList(),
+    currentCaregiver: String? = null,
     onSubmit: (FeedingDraft) -> Unit,
     onCancel: () -> Unit,
     bindDiscard: (((() -> Unit)) -> Unit)? = null,
 ) {
-    var type by rememberSaveable(initial?.id) { mutableStateOf(initial?.type ?: FeedingType.BREAST_LEFT) }
-    var happenedAt by rememberSaveable(initial?.id) {
-        mutableStateOf(initial?.happenedAt?.format(dateTimeFormatter) ?: LocalDateTime.now().format(dateTimeFormatter))
+    var type by rememberSaveable(initial?.id, defaults.defaultType.name) {
+        mutableStateOf(initial?.type ?: defaults.defaultType)
     }
-    var durationMinutes by rememberSaveable(initial?.id) { mutableStateOf(initial?.durationMinutes ?: 15) }
-    var amountMl by rememberSaveable(initial?.id) { mutableStateOf(initial?.amountMl?.toString() ?: "90") }
+    var happenedAt by rememberSaveable(initial?.id, defaults.defaultHappenedAt.toString()) {
+        mutableStateOf(initial?.happenedAt?.format(dateTimeFormatter) ?: defaults.defaultHappenedAt.format(dateTimeFormatter))
+    }
+    var durationMinutes by rememberSaveable(initial?.id, defaults.defaultDurationMinutes) {
+        mutableStateOf(initial?.durationMinutes ?: defaults.defaultDurationMinutes)
+    }
+    var amountMl by rememberSaveable(initial?.id, defaults.defaultBottleAmountMl) {
+        mutableStateOf(initial?.amountMl?.toString() ?: defaults.defaultBottleAmountMl.toString())
+    }
     var foodName by rememberSaveable(initial?.id) { mutableStateOf(initial?.foodName.orEmpty()) }
     var note by rememberSaveable(initial?.id) { mutableStateOf(initial?.note.orEmpty()) }
+    var caregiver by rememberSaveable(initial?.id, currentCaregiver) {
+        mutableStateOf(initial?.caregiver ?: currentCaregiver.orEmpty())
+    }
     var errorText by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
+    var revealHiddenTypes by rememberSaveable(initial?.id, defaults.hiddenTypes.joinToString()) {
+        mutableStateOf(initial?.type == FeedingType.SOLID_FOOD || defaults.hiddenTypes.isEmpty())
+    }
     val photoAttachment = rememberManagedPhotoAttachment(
         initialPhotoPath = initial?.photoPath,
         photoTag = "feeding",
@@ -97,14 +135,79 @@ fun AddFeedingForm(
         bindDiscard?.invoke(discardDraft)
     }
 
+    val visibleTypes = defaults.orderedTypes.filterNot { type ->
+        !revealHiddenTypes && type in defaults.hiddenTypes
+    }
+
+    LaunchedEffect(visibleTypes, initial?.id) {
+        if (type !in visibleTypes) {
+            type = visibleTypes.firstOrNull() ?: FeedingType.BREAST_LEFT
+        }
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         LargeOptionSection(
             title = "类型",
-            options = FeedingType.entries,
+            options = visibleTypes,
             selected = type,
             label = { it.label },
             onSelect = { type = it },
         )
+        CaregiverSection(
+            caregivers = caregivers,
+            selected = caregiver,
+            onSelect = { caregiver = it },
+        )
+        if (initial == null && defaults.breastSideHint != null && type in listOf(FeedingType.BREAST_LEFT, FeedingType.BREAST_RIGHT)) {
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Text(
+                    text = defaults.breastSideHint,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+        }
+        if (initial == null && !revealHiddenTypes && defaults.hiddenTypesHint != null) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = defaults.hiddenTypesHint,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(onClick = { revealHiddenTypes = true }) {
+                        Text("仍要记录辅食")
+                    }
+                }
+            }
+        }
+        if (initial != null && initial.allergyObservation != AllergyStatus.NONE) {
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Text(
+                    text = buildString {
+                        append("辅食观察：${initial.allergyObservation.label}")
+                        initial.observationEndDate?.let { append("，到 $it") }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+        }
         NativeDateTimePickerField(
             value = happenedAt,
             onValueChange = { happenedAt = it },
@@ -180,7 +283,20 @@ fun AddFeedingForm(
                                 errorText = "母乳记录需要有效时长。"
                             } else {
                                 photoAttachment.commitChanges()
-                                onSubmit(FeedingDraft(type, happened, durationMinutes, null, null, null, note))
+                                onSubmit(
+                                    FeedingDraft(
+                                        type = type,
+                                        happenedAt = happened,
+                                        durationMinutes = durationMinutes,
+                                        amountMl = null,
+                                        foodName = null,
+                                        photoPath = null,
+                                        note = note,
+                                        allergyObservation = initial?.allergyObservation ?: AllergyStatus.NONE,
+                                        observationEndDate = initial?.observationEndDate,
+                                        caregiver = caregiver.takeIf { it.isNotBlank() },
+                                    ),
+                                )
                             }
                         }
                         FeedingType.BOTTLE_BREAST_MILK, FeedingType.BOTTLE_FORMULA -> {
@@ -189,7 +305,20 @@ fun AddFeedingForm(
                                 errorText = "瓶喂记录需要奶量。"
                             } else {
                                 photoAttachment.commitChanges()
-                                onSubmit(FeedingDraft(type, happened, null, amount, null, null, note))
+                                onSubmit(
+                                    FeedingDraft(
+                                        type = type,
+                                        happenedAt = happened,
+                                        durationMinutes = null,
+                                        amountMl = amount,
+                                        foodName = null,
+                                        photoPath = null,
+                                        note = note,
+                                        allergyObservation = initial?.allergyObservation ?: AllergyStatus.NONE,
+                                        observationEndDate = initial?.observationEndDate,
+                                        caregiver = caregiver.takeIf { it.isNotBlank() },
+                                    ),
+                                )
                             }
                         }
                         FeedingType.SOLID_FOOD -> {
@@ -197,7 +326,20 @@ fun AddFeedingForm(
                                 errorText = "辅食记录需要食材名称。"
                             } else {
                                 photoAttachment.commitChanges()
-                                onSubmit(FeedingDraft(type, happened, null, null, foodName, photoPath, note))
+                                onSubmit(
+                                    FeedingDraft(
+                                        type = type,
+                                        happenedAt = happened,
+                                        durationMinutes = null,
+                                        amountMl = null,
+                                        foodName = foodName,
+                                        photoPath = photoPath,
+                                        note = note,
+                                        allergyObservation = initial?.allergyObservation ?: AllergyStatus.NONE,
+                                        observationEndDate = initial?.observationEndDate,
+                                        caregiver = caregiver.takeIf { it.isNotBlank() },
+                                    ),
+                                )
                             }
                         }
                     }
@@ -210,8 +352,10 @@ fun AddFeedingForm(
 @Composable
 fun AddSleepForm(
     initial: SleepEntity?,
+    caregivers: List<String> = emptyList(),
+    currentCaregiver: String? = null,
     onSubmit: (SleepDraft) -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
 ) {
     val now = LocalDateTime.now()
     var startTime by rememberSaveable(initial?.id) {
@@ -221,9 +365,21 @@ fun AddSleepForm(
         mutableStateOf(initial?.endTime?.format(dateTimeFormatter) ?: now.format(dateTimeFormatter))
     }
     var note by rememberSaveable(initial?.id) { mutableStateOf(initial?.note.orEmpty()) }
+    var sleepType by rememberSaveable(initial?.id) { mutableStateOf(initial?.sleepType ?: SleepType.NAP) }
+    var fallingMethod by rememberSaveable(initial?.id) { mutableStateOf(initial?.fallingAsleepMethod ?: FallingAsleepMethod.NURSING) }
+    var caregiver by rememberSaveable(initial?.id, currentCaregiver) {
+        mutableStateOf(initial?.caregiver ?: currentCaregiver.orEmpty())
+    }
     var errorText by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        CaregiverSection(
+            caregivers = caregivers,
+            selected = caregiver,
+            onSelect = { caregiver = it },
+        )
+        LargeOptionSection("睡眠类型", SleepType.entries, sleepType, { it.label }) { sleepType = it }
+        LargeOptionSection("入睡方式", FallingAsleepMethod.entries, fallingMethod, { it.label }) { fallingMethod = it }
         NativeDateTimePickerField(
             value = startTime,
             onValueChange = { startTime = it },
@@ -258,7 +414,16 @@ fun AddSleepForm(
                 } else if (!end.isAfter(start)) {
                     errorText = "结束时间需要晚于开始时间。"
                 } else {
-                    onSubmit(SleepDraft(start, end, note))
+                    onSubmit(
+                        SleepDraft(
+                            startTime = start,
+                            endTime = end,
+                            note = note,
+                            sleepType = sleepType,
+                            fallingAsleepMethod = fallingMethod,
+                            caregiver = caregiver.takeIf { it.isNotBlank() },
+                        ),
+                    )
                 }
             }) { Text("保存") }
         }
@@ -268,8 +433,11 @@ fun AddSleepForm(
 @Composable
 fun AddDiaperForm(
     initial: DiaperEntity?,
+    caregivers: List<String> = emptyList(),
+    currentCaregiver: String? = null,
     onSubmit: (DiaperDraft) -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    bindDiscard: (((() -> Unit)) -> Unit)? = null,
 ) {
     var type by rememberSaveable(initial?.id) { mutableStateOf(initial?.type ?: DiaperType.PEE) }
     var happenedAt by rememberSaveable(initial?.id) {
@@ -278,9 +446,28 @@ fun AddDiaperForm(
     var selectedColor by rememberSaveable(initial?.id) { mutableStateOf(initial?.poopColor ?: PoopColor.YELLOW) }
     var selectedTexture by rememberSaveable(initial?.id) { mutableStateOf(initial?.poopTexture ?: PoopTexture.NORMAL) }
     var note by rememberSaveable(initial?.id) { mutableStateOf(initial?.note.orEmpty()) }
+    var caregiver by rememberSaveable(initial?.id, currentCaregiver) {
+        mutableStateOf(initial?.caregiver ?: currentCaregiver.orEmpty())
+    }
     var errorText by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
+    val photoAttachment = rememberManagedPhotoAttachment(
+        initialPhotoPath = initial?.photoPath,
+        photoTag = "diaper",
+        onError = { errorText = it },
+    )
+    val photoPath = photoAttachment.photoPath
+    val discardDraft = { photoAttachment.discardChanges() }
+
+    SideEffect {
+        bindDiscard?.invoke(discardDraft)
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        CaregiverSection(
+            caregivers = caregivers,
+            selected = caregiver,
+            onSelect = { caregiver = it },
+        )
         LargeOptionSection("类型", DiaperType.entries, type, { it.label }) { type = it }
         NativeDateTimePickerField(
             value = happenedAt,
@@ -292,6 +479,15 @@ fun AddDiaperForm(
         if (type == DiaperType.POOP) {
             LargeOptionSection("颜色", PoopColor.entries, selectedColor, { it.label }) { selectedColor = it }
             LargeOptionSection("性状", PoopTexture.entries, selectedTexture, { it.label }) { selectedTexture = it }
+            photoPath?.let {
+                PhotoPreviewCard(filePath = it, contentDescription = "便便照片预览")
+            }
+            PhotoActionRow(
+                hasPhoto = photoPath != null,
+                onTakePhoto = photoAttachment.onTakePhoto,
+                onPickPhoto = photoAttachment.onPickPhoto,
+                onRemovePhoto = photoAttachment.onRemovePhoto,
+            )
         }
         OutlinedTextField(
             value = note,
@@ -304,12 +500,16 @@ fun AddDiaperForm(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End
         ) {
-            TextButton(onClick = onCancel) { Text("取消") }
+            TextButton(onClick = {
+                discardDraft()
+                onCancel()
+            }) { Text("取消") }
             Button(onClick = {
                 val happened = happenedAt.toLocalDateTimeOrNull()
                 if (happened == null) {
                     errorText = "请选择发生时间。"
                 } else {
+                    photoAttachment.commitChanges()
                     onSubmit(
                         DiaperDraft(
                             happenedAt = happened,
@@ -317,6 +517,8 @@ fun AddDiaperForm(
                             poopColor = if (type == DiaperType.POOP) selectedColor else null,
                             poopTexture = if (type == DiaperType.POOP) selectedTexture else null,
                             note = note,
+                            photoPath = if (type == DiaperType.POOP) photoPath else null,
+                            caregiver = caregiver.takeIf { it.isNotBlank() },
                         ),
                     )
                 }
@@ -328,8 +530,10 @@ fun AddDiaperForm(
 @Composable
 fun AddMedicalForm(
     initial: MedicalEntity?,
+    caregivers: List<String> = emptyList(),
+    currentCaregiver: String? = null,
     onSubmit: (MedicalDraft) -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
 ) {
     var type by rememberSaveable(initial?.id) { mutableStateOf(initial?.type ?: MedicalRecordType.ILLNESS) }
     var happenedAt by rememberSaveable(initial?.id) {
@@ -339,9 +543,17 @@ fun AddMedicalForm(
     var temperature by rememberSaveable(initial?.id) { mutableStateOf(initial?.temperatureC?.toString().orEmpty()) }
     var dosage by rememberSaveable(initial?.id) { mutableStateOf(initial?.dosage.orEmpty()) }
     var note by rememberSaveable(initial?.id) { mutableStateOf(initial?.note.orEmpty()) }
+    var caregiver by rememberSaveable(initial?.id, currentCaregiver) {
+        mutableStateOf(initial?.caregiver ?: currentCaregiver.orEmpty())
+    }
     var errorText by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        CaregiverSection(
+            caregivers = caregivers,
+            selected = caregiver,
+            onSelect = { caregiver = it },
+        )
         LargeOptionSection("类型", MedicalRecordType.entries, type, { it.label }) { type = it }
         NativeDateTimePickerField(
             value = happenedAt,
@@ -418,6 +630,7 @@ fun AddMedicalForm(
                             temperatureC = if (type == MedicalRecordType.ILLNESS) temperatureValue else null,
                             dosage = if (type == MedicalRecordType.MEDICATION) dosage else null,
                             note = note,
+                            caregiver = caregiver.takeIf { it.isNotBlank() },
                         ),
                     )
                 }
@@ -429,8 +642,10 @@ fun AddMedicalForm(
 @Composable
 fun AddActivityForm(
     initial: ActivityEntity?,
+    caregivers: List<String> = emptyList(),
+    currentCaregiver: String? = null,
     onSubmit: (ActivityDraft) -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
 ) {
     var type by rememberSaveable(initial?.id) { mutableStateOf(initial?.type ?: ActivityType.OUTDOOR) }
     var happenedAt by rememberSaveable(initial?.id) {
@@ -438,9 +653,17 @@ fun AddActivityForm(
     }
     var durationMinutes by rememberSaveable(initial?.id) { mutableStateOf(initial?.durationMinutes) }
     var note by rememberSaveable(initial?.id) { mutableStateOf(initial?.note.orEmpty()) }
+    var caregiver by rememberSaveable(initial?.id, currentCaregiver) {
+        mutableStateOf(initial?.caregiver ?: currentCaregiver.orEmpty())
+    }
     var errorText by rememberSaveable(initial?.id) { mutableStateOf<String?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        CaregiverSection(
+            caregivers = caregivers,
+            selected = caregiver,
+            onSelect = { caregiver = it },
+        )
         LargeOptionSection("类型", ActivityType.entries, type, { it.label }) { type = it }
         NativeDateTimePickerField(
             value = happenedAt,
@@ -475,7 +698,15 @@ fun AddActivityForm(
                 if (happened == null) {
                     errorText = "请选择发生时间。"
                 } else {
-                    onSubmit(ActivityDraft(happened, type, durationMinutes, note))
+                    onSubmit(
+                        ActivityDraft(
+                            happenedAt = happened,
+                            type = type,
+                            durationMinutes = durationMinutes,
+                            note = note,
+                            caregiver = caregiver.takeIf { it.isNotBlank() },
+                        ),
+                    )
                 }
             }) { Text("保存") }
         }

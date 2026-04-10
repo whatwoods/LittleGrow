@@ -11,7 +11,9 @@ import androidx.glance.LocalContext
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
+import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.updateAll
 import androidx.glance.background
@@ -32,9 +34,12 @@ import com.littlegrow.app.AppLaunchTarget
 import com.littlegrow.app.RecordQuickAction
 import com.littlegrow.app.buildAppLaunchIntent
 import com.littlegrow.app.data.AppDatabase
+import com.littlegrow.app.data.DiaperEntity
+import com.littlegrow.app.data.DiaperType
 import com.littlegrow.app.data.RecordTab
 import com.littlegrow.app.data.toProfile
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.Period
 import kotlinx.coroutines.flow.first
 
@@ -48,6 +53,44 @@ object LittleGrowWidgetUpdater {
 
 class LittleGrowWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = littleGrowWidget
+}
+
+class QuickPeeAction : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: androidx.glance.action.ActionParameters,
+    ) {
+        AppDatabase.getInstance(context).diaperDao().upsert(
+            DiaperEntity(
+                happenedAt = LocalDateTime.now(),
+                type = DiaperType.PEE,
+                poopColor = null,
+                poopTexture = null,
+                note = null,
+            ),
+        )
+        littleGrowWidget.updateAll(context)
+    }
+}
+
+class QuickPoopAction : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: androidx.glance.action.ActionParameters,
+    ) {
+        AppDatabase.getInstance(context).diaperDao().upsert(
+            DiaperEntity(
+                happenedAt = LocalDateTime.now(),
+                type = DiaperType.POOP,
+                poopColor = null,
+                poopTexture = null,
+                note = null,
+            ),
+        )
+        littleGrowWidget.updateAll(context)
+    }
 }
 
 private class LittleGrowGlanceWidget : GlanceAppWidget() {
@@ -143,50 +186,49 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
             )
         }
         Spacer(modifier = GlanceModifier.height(12.dp))
-        QuickActionChip(
-            label = "母乳计时",
-            intent = buildAppLaunchIntent(
-                context,
-                AppLaunchTarget(
-                    destination = AppDestination.RECORDS,
-                    recordTab = RecordTab.FEEDING,
-                    quickAction = RecordQuickAction.TIMER,
+        Text(
+            text = "一键记录",
+            style = TextStyle(
+                color = ColorProvider(day = Color(0xFF7C2D12), night = Color(0xFFFDE68A)),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+            ),
+        )
+        Spacer(modifier = GlanceModifier.height(8.dp))
+        WidgetActionButton(
+            label = "尿了",
+            onClick = actionRunCallback<QuickPeeAction>(),
+        )
+        Spacer(modifier = GlanceModifier.height(8.dp))
+        WidgetActionButton(
+            label = "拉了",
+            onClick = actionRunCallback<QuickPoopAction>(),
+        )
+        Spacer(modifier = GlanceModifier.height(8.dp))
+        WidgetActionButton(
+            label = "记喂奶",
+            onClick = actionStartActivity(
+                buildAppLaunchIntent(
+                    context,
+                    AppLaunchTarget(
+                        destination = AppDestination.RECORDS,
+                        recordTab = RecordTab.FEEDING,
+                        quickAction = RecordQuickAction.ADD,
+                    ),
                 ),
             ),
         )
         Spacer(modifier = GlanceModifier.height(8.dp))
-        QuickActionChip(
+        WidgetActionButton(
             label = "记睡眠",
-            intent = buildAppLaunchIntent(
-                context,
-                AppLaunchTarget(
-                    destination = AppDestination.RECORDS,
-                    recordTab = RecordTab.SLEEP,
-                    quickAction = RecordQuickAction.ADD,
-                ),
-            ),
-        )
-        Spacer(modifier = GlanceModifier.height(8.dp))
-        QuickActionChip(
-            label = "记尿布",
-            intent = buildAppLaunchIntent(
-                context,
-                AppLaunchTarget(
-                    destination = AppDestination.RECORDS,
-                    recordTab = RecordTab.DIAPER,
-                    quickAction = RecordQuickAction.ADD,
-                ),
-            ),
-        )
-        Spacer(modifier = GlanceModifier.height(8.dp))
-        QuickActionChip(
-            label = "健康记录",
-            intent = buildAppLaunchIntent(
-                context,
-                AppLaunchTarget(
-                    destination = AppDestination.RECORDS,
-                    recordTab = RecordTab.MEDICAL,
-                    quickAction = RecordQuickAction.ADD,
+            onClick = actionStartActivity(
+                buildAppLaunchIntent(
+                    context,
+                    AppLaunchTarget(
+                        destination = AppDestination.RECORDS,
+                        recordTab = RecordTab.SLEEP,
+                        quickAction = RecordQuickAction.ADD,
+                    ),
                 ),
             ),
         )
@@ -194,15 +236,16 @@ private fun WidgetContent(snapshot: WidgetSnapshot) {
 }
 
 @Composable
-private fun QuickActionChip(
+private fun WidgetActionButton(
     label: String,
-    intent: android.content.Intent,
+    modifier: GlanceModifier = GlanceModifier,
+    onClick: androidx.glance.action.Action,
 ) {
     Box(
-        modifier = GlanceModifier
+        modifier = modifier
             .fillMaxWidth()
             .background(ColorProvider(day = Color(0xFFFDBA74), night = Color(0xFF4B5563)))
-            .clickable(actionStartActivity(intent))
+            .clickable(onClick)
             .padding(vertical = 10.dp, horizontal = 12.dp),
         contentAlignment = Alignment.Center,
     ) {

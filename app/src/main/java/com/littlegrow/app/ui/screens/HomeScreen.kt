@@ -1,48 +1,72 @@
 package com.littlegrow.app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.Alignment
-import androidx.compose.material3.Card
-import com.littlegrow.app.ui.theme.softShadow
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.littlegrow.app.data.AgeBasedReference
 import com.littlegrow.app.data.DiaperEntity
 import com.littlegrow.app.data.FeedingEntity
 import com.littlegrow.app.data.GrowthMetric
+import com.littlegrow.app.data.HomeModule
 import com.littlegrow.app.data.HomeSummary
+import com.littlegrow.app.data.MemorySnapshot
+import com.littlegrow.app.data.MonthlyGuideEntry
 import com.littlegrow.app.data.RecordTab
+import com.littlegrow.app.data.RoutineInsight
 import com.littlegrow.app.data.SleepEntity
+import com.littlegrow.app.data.TrendDirection
+import com.littlegrow.app.data.TrendInsight
+import com.littlegrow.app.data.VaccineEntity
+import com.littlegrow.app.ui.BabyAvatar
+import com.littlegrow.app.ui.PhotoPreviewCard
 import com.littlegrow.app.ui.formatDate
 import com.littlegrow.app.ui.formatDateTime
 import com.littlegrow.app.ui.formatMetric
 import com.littlegrow.app.ui.formatMinutes
+import com.littlegrow.app.ui.theme.softShadow
 import java.time.Duration
+import java.time.temporal.ChronoUnit
 
 @Composable
 fun HomeScreen(
     summary: HomeSummary,
+    activeModules: List<HomeModule>,
+    weeklyTrends: List<TrendInsight>,
+    routineInsights: List<RoutineInsight>,
+    encouragementText: String,
+    monthlyGuide: MonthlyGuideEntry?,
+    memoryOfTheDay: MemorySnapshot?,
+    vaccines: List<VaccineEntity>,
+    caregivers: List<String>,
+    caregiverFilter: String?,
     contentPadding: PaddingValues,
+    onCaregiverFilterChange: (String?) -> Unit,
+    onDismissGuide: (Int) -> Unit,
     onOpenRecords: (RecordTab) -> Unit,
     onOpenGrowth: () -> Unit,
     onOpenTimeline: () -> Unit,
+    onOpenMedicalSummary: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     LazyColumn(
@@ -55,9 +79,9 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            Card(
+            ElevatedCard(
                 modifier = Modifier.softShadow(),
-                colors = CardDefaults.cardColors(
+                colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                 ),
             ) {
@@ -66,16 +90,17 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .padding(20.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Box(
+                    BabyAvatar(
+                        avatarPath = summary.profile?.avatarPath,
+                        contentDescription = "宝宝头像",
                         modifier = Modifier
-                            .size(64.dp)
-                            .background(MaterialTheme.colorScheme.surface, CircleShape)
+                            .size(72.dp),
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                        borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
                     )
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
                             text = summary.profile?.name ?: "欢迎来到长呀长",
                             style = MaterialTheme.typography.headlineSmall,
@@ -83,12 +108,53 @@ fun HomeScreen(
                         )
                         Text(
                             text = summary.ageText,
-                            style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        Text("把每天的成长留在本地")
+                    }
+                }
+            }
+        }
+
+        if (encouragementText.isNotBlank()) {
+            item {
+                ElevatedCard {
+                    Text(
+                        text = encouragementText,
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
+            }
+        }
+
+        if (caregivers.isNotEmpty()) {
+            item {
+                ElevatedCard {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("看护人筛选", fontWeight = FontWeight.SemiBold)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            AssistChip(
+                                onClick = { onCaregiverFilterChange(null) },
+                                label = { Text("全部") },
+                            )
+                            caregivers.forEach { caregiver ->
+                                AssistChip(
+                                    onClick = { onCaregiverFilterChange(caregiver) },
+                                    label = { Text(caregiver) },
+                                )
+                            }
+                        }
                         Text(
-                            text = "把每天的成长留在本地",
-                            style = MaterialTheme.typography.bodyMedium,
+                            caregiverFilter?.let { "当前只看 $it 的记录摘要。" } ?: "当前显示全部看护人的记录摘要。",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
                 }
@@ -96,141 +162,382 @@ fun HomeScreen(
         }
 
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                SummaryCard(
-                    modifier = Modifier.weight(1f),
-                    title = "今日喂养",
-                    value = "${summary.todayFeedings} 次",
-                    subtitle = "最近三条记录一眼看完",
-                )
-                SummaryCard(
-                    modifier = Modifier.weight(1f),
-                    title = "今日排泄",
-                    value = "${summary.todayDiapers} 次",
-                    subtitle = "异常颜色会高亮提醒",
-                )
-            }
-        }
-
-        item {
-            SummaryCard(
-                title = "今日睡眠",
-                value = summary.todaySleepMinutes.formatMinutes(),
-                subtitle = summary.latestGrowth?.let {
-                    "最新生长：${it.date.formatDate()} 体重 ${it.weightKg.formatMetric(GrowthMetric.WEIGHT)}"
-                } ?: "还没有生长记录，建议补一条体重或身高。",
+            QuickActionGrid(
+                onOpenRecords = onOpenRecords,
+                onOpenGrowth = onOpenGrowth,
+                onOpenTimeline = onOpenTimeline,
+                onOpenMedicalSummary = onOpenMedicalSummary,
+                onOpenSettings = onOpenSettings,
             )
         }
 
-        item {
-            SectionTitle("快捷入口")
-        }
+        activeModules.forEach { module ->
+            when (module) {
+                HomeModule.TODAY_SUMMARY -> {
+                    item { TodaySummarySection(summary = summary) }
+                }
 
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                QuickActionChip("记喂奶", Modifier.weight(1f)) { onOpenRecords(RecordTab.FEEDING) }
-                QuickActionChip("记睡眠", Modifier.weight(1f)) { onOpenRecords(RecordTab.SLEEP) }
-                QuickActionChip("记尿布", Modifier.weight(1f)) { onOpenRecords(RecordTab.DIAPER) }
-            }
-        }
+                HomeModule.RECENT_FEEDINGS -> {
+                    item { SectionLabel("最近喂养") }
+                    if (summary.recentFeedings.isEmpty()) {
+                        item { EmptyRecordCard("当前筛选下还没有喂养记录。") }
+                    } else {
+                        summary.recentFeedings.forEach { feeding ->
+                            item { HomeFeedingCard(feeding) }
+                        }
+                    }
+                }
 
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                QuickActionChip("健康记录", Modifier.weight(1f)) { onOpenRecords(RecordTab.MEDICAL) }
-                QuickActionChip("活动记录", Modifier.weight(1f)) { onOpenRecords(RecordTab.ACTIVITY) }
-                QuickActionChip("成长曲线", Modifier.weight(1f), onOpenGrowth)
-            }
-        }
+                HomeModule.RECENT_SLEEP -> {
+                    item { SectionLabel("最近睡眠") }
+                    if (summary.recentSleeps.isEmpty()) {
+                        item { EmptyRecordCard("当前筛选下还没有睡眠记录。") }
+                    } else {
+                        summary.recentSleeps.forEach { sleep ->
+                            item { HomeSleepCard(sleep) }
+                        }
+                    }
+                }
 
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                QuickActionChip("里程碑", Modifier.weight(1f), onOpenTimeline)
-                QuickActionChip("宝宝资料", Modifier.weight(1f), onOpenSettings)
-            }
-        }
+                HomeModule.LATEST_GROWTH -> {
+                    item { LatestGrowthCard(summary) }
+                }
 
-        item {
-            SectionTitle("最近喂养")
-        }
-        if (summary.recentFeedings.isEmpty()) {
-            item {
-                EmptyRecordCard("还没有喂养记录。", modifier = Modifier.padding(bottom = 8.dp))
-            }
-        } else {
-            items(summary.recentFeedings, key = { it.id }) { feeding ->
-                HomeFeedingCard(feeding = feeding)
-            }
-        }
+                HomeModule.MILESTONE -> {
+                    item { LatestMilestoneCard(summary) }
+                }
 
-        item {
-            SectionTitle("最近睡眠")
-        }
-        if (summary.recentSleeps.isEmpty()) {
-            item {
-                EmptyRecordCard("还没有睡眠记录。", modifier = Modifier.padding(bottom = 8.dp))
-            }
-        } else {
-            items(summary.recentSleeps, key = { it.id }) { sleep ->
-                HomeSleepCard(sleep = sleep)
-            }
-        }
+                HomeModule.VACCINE -> {
+                    item { VaccineReminderCard(vaccines = vaccines) }
+                }
 
-        item {
-            SectionTitle("最近排泄")
-        }
-        if (summary.recentDiapers.isEmpty()) {
-            item {
-                EmptyRecordCard("还没有排泄记录。", modifier = Modifier.padding(bottom = 8.dp))
-            }
-        } else {
-            items(summary.recentDiapers, key = { it.id }) { diaper ->
-                HomeDiaperCard(diaper = diaper)
+                HomeModule.TREND -> {
+                    item { TrendCard(trends = weeklyTrends) }
+                }
+
+                HomeModule.ROUTINE -> {
+                    item { RoutineCard(routineInsights = routineInsights) }
+                }
+
+                HomeModule.MEMORY -> {
+                    memoryOfTheDay?.let { memory ->
+                        item { MemoryCard(memory) }
+                    }
+                }
+
+                HomeModule.GUIDE -> {
+                    monthlyGuide?.let { guide ->
+                        item {
+                            MonthlyGuideCard(
+                                guide = guide,
+                                onDismiss = { onDismissGuide(guide.month) },
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun SectionTitle(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.SemiBold,
-    )
+private fun QuickActionGrid(
+    onOpenRecords: (RecordTab) -> Unit,
+    onOpenGrowth: () -> Unit,
+    onOpenTimeline: () -> Unit,
+    onOpenMedicalSummary: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    ElevatedCard {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("快捷入口", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                QuickActionChip("记喂奶", Modifier.weight(1f)) { onOpenRecords(RecordTab.FEEDING) }
+                QuickActionChip("记睡眠", Modifier.weight(1f)) { onOpenRecords(RecordTab.SLEEP) }
+                QuickActionChip("记尿布", Modifier.weight(1f)) { onOpenRecords(RecordTab.DIAPER) }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                QuickActionChip("健康记录", Modifier.weight(1f)) { onOpenRecords(RecordTab.MEDICAL) }
+                QuickActionChip("成长曲线", Modifier.weight(1f), onOpenGrowth)
+                QuickActionChip("就医摘要", Modifier.weight(1f), onOpenMedicalSummary)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                QuickActionChip("里程碑", Modifier.weight(1f), onOpenTimeline)
+                QuickActionChip("设置", Modifier.weight(1f), onOpenSettings)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TodaySummarySection(summary: HomeSummary) {
+    val ageMonths = summary.profile?.birthday?.let { ChronoUnit.MONTHS.between(it, java.time.LocalDate.now()).toInt() }
+    val feedingRange = ageMonths?.let(AgeBasedReference::feedingTimesPerDay)
+    val sleepRange = ageMonths?.let(AgeBasedReference::sleepHoursPerDay)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionLabel("今日摘要")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SummaryCard(
+                modifier = Modifier.weight(1f),
+                title = "今日喂养",
+                value = "${summary.todayFeedings} 次",
+                badge = feedingRange?.let {
+                    ReferenceBadgeData(
+                        text = summary.todayFeedingReference ?: "参考 ${it.min}-${it.max} ${it.unit}",
+                        color = referenceColor(summary.todayFeedings.toDouble(), it.min, it.max),
+                    )
+                },
+            )
+            SummaryCard(
+                modifier = Modifier.weight(1f),
+                title = "今日排泄",
+                value = "${summary.todayDiapers} 次",
+                badge = null,
+            )
+        }
+        SummaryCard(
+            title = "今日睡眠",
+            value = summary.todaySleepMinutes.formatMinutes(),
+            badge = sleepRange?.let {
+                ReferenceBadgeData(
+                    text = summary.todaySleepReference ?: "参考 ${it.min}-${it.max} ${it.unit}",
+                    color = referenceColor(summary.todaySleepMinutes / 60.0, it.min, it.max),
+                )
+            },
+            subtitle = summary.latestGrowth?.let {
+                "最新生长：${it.date.formatDate()} 体重 ${it.weightKg.formatMetric(GrowthMetric.WEIGHT)}"
+            } ?: "还没有生长记录。",
+        )
+    }
+}
+
+@Composable
+private fun LatestGrowthCard(summary: HomeSummary) {
+    SectionCard(
+        title = "最近体重",
+        emptyText = "还没有生长记录。",
+    ) {
+        val growth = summary.latestGrowth
+        if (growth == null) {
+            Text("还没有生长记录。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Text("${growth.date.formatDate()} · 体重 ${growth.weightKg.formatMetric(GrowthMetric.WEIGHT)}")
+            Text("身高 ${growth.heightCm.formatMetric(GrowthMetric.HEIGHT)} · 头围 ${growth.headCircCm.formatMetric(GrowthMetric.HEAD)}")
+        }
+    }
+}
+
+@Composable
+private fun LatestMilestoneCard(summary: HomeSummary) {
+    SectionCard(
+        title = "最近里程碑",
+        emptyText = "还没有里程碑记录。",
+    ) {
+        val milestone = summary.latestMilestone
+        if (milestone == null) {
+            Text("还没有里程碑记录。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Text(milestone.title, fontWeight = FontWeight.SemiBold)
+            Text("${milestone.category.label} · ${milestone.achievedDate.formatDate()}")
+            milestone.note?.let {
+                Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun VaccineReminderCard(vaccines: List<VaccineEntity>) {
+    val pending = vaccines.filterNot { it.isDone }.sortedBy { it.scheduledDate }
+    val overdue = pending.filter { it.scheduledDate.isBefore(java.time.LocalDate.now().minusDays(30)) }
+    SectionCard(
+        title = "疫苗提醒",
+        emptyText = "当前没有待接种疫苗。",
+    ) {
+        if (pending.isEmpty()) {
+            Text("当前没有待接种疫苗。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            val nearest = pending.first()
+            Text("${nearest.vaccineName} 第 ${nearest.doseNumber} 针", fontWeight = FontWeight.SemiBold)
+            Text("建议日期 ${nearest.scheduledDate.formatDate()}")
+            if (overdue.isNotEmpty()) {
+                Text("已有 ${overdue.size} 项逾期超过 30 天，建议尽快补种。", color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrendCard(trends: List<TrendInsight>) {
+    SectionCard(
+        title = "本周趋势",
+        emptyText = "最近两周数据还不够，暂时看不出明显变化。",
+    ) {
+        if (trends.isEmpty()) {
+            Text("最近两周数据还不够，暂时看不出明显变化。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                trends.take(3).forEach { trend ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        ReferenceBadgeComposable(
+                            text = trend.category,
+                            color = when (trend.direction) {
+                                TrendDirection.UP -> MaterialTheme.colorScheme.tertiaryContainer
+                                TrendDirection.DOWN -> MaterialTheme.colorScheme.errorContainer
+                                TrendDirection.STABLE -> MaterialTheme.colorScheme.surfaceVariant
+                            },
+                        )
+                        Text(trend.description, modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RoutineCard(routineInsights: List<RoutineInsight>) {
+    SectionCard(
+        title = "作息规律",
+        emptyText = "再多记录几天，系统会帮你识别更明显的规律。",
+    ) {
+        if (routineInsights.isEmpty()) {
+            Text("再多记录几天，系统会帮你识别更明显的规律。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                routineInsights.forEach { insight ->
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(insight.title, fontWeight = FontWeight.SemiBold)
+                        Text(insight.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MemoryCard(memory: MemorySnapshot) {
+    SectionCard(title = memory.title, emptyText = "暂无成长回忆。") {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            memory.lines.forEach { line -> Text(line) }
+            memory.photoPaths.forEach { path ->
+                PhotoPreviewCard(filePath = path, contentDescription = memory.title)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MonthlyGuideCard(
+    guide: MonthlyGuideEntry,
+    onDismiss: () -> Unit,
+) {
+    ElevatedCard {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(guide.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                TextButton(onClick = onDismiss) {
+                    Text("知道了")
+                }
+            }
+            GuideBlock("发育特点", guide.developmentHighlights)
+            GuideBlock("喂养建议", guide.feedingTips)
+            GuideBlock("睡眠建议", guide.sleepTips)
+            GuideBlock("照护提醒", guide.careTips)
+        }
+    }
+}
+
+@Composable
+private fun GuideBlock(
+    title: String,
+    items: List<String>,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, fontWeight = FontWeight.SemiBold)
+        items.forEach { item ->
+            Text("- $item", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun SectionCard(
+    title: String,
+    emptyText: String,
+    content: @Composable () -> Unit,
+) {
+    ElevatedCard {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            content()
+        }
+    }
+}
+
+@Composable
+private fun SectionLabel(title: String) {
+    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
 }
 
 @Composable
 private fun SummaryCard(
     title: String,
     value: String,
-    subtitle: String,
     modifier: Modifier = Modifier,
+    badge: ReferenceBadgeData? = null,
+    subtitle: String? = null,
 ) {
-    androidx.compose.material3.Card(
-        modifier = modifier.softShadow(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
+    ElevatedCard(modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            badge?.let {
+                ReferenceBadgeComposable(text = it.text, color = it.color)
+            }
+            subtitle?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
@@ -244,15 +551,13 @@ private fun QuickActionChip(
     AssistChip(
         modifier = modifier,
         onClick = onClick,
-        label = {
-            Text(label)
-        },
+        label = { Text(label) },
     )
 }
 
 @Composable
 private fun HomeFeedingCard(feeding: FeedingEntity) {
-    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+    ElevatedCard {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -260,11 +565,12 @@ private fun HomeFeedingCard(feeding: FeedingEntity) {
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(feeding.type.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text(feeding.happenedAt.formatDateTime(), style = MaterialTheme.typography.bodyMedium)
+            Text(feeding.happenedAt.formatDateTime())
             val details = buildList {
                 feeding.durationMinutes?.let { add("${it} 分钟") }
                 feeding.amountMl?.let { add("${it} ml") }
                 feeding.foodName?.let { add(it) }
+                feeding.caregiver?.let { add("记录人 $it") }
                 feeding.note?.let { add(it) }
             }
             if (details.isNotEmpty()) {
@@ -276,7 +582,7 @@ private fun HomeFeedingCard(feeding: FeedingEntity) {
 
 @Composable
 private fun HomeSleepCard(sleep: SleepEntity) {
-    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+    ElevatedCard {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -286,7 +592,11 @@ private fun HomeSleepCard(sleep: SleepEntity) {
             Text("睡眠", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Text("${sleep.startTime.formatDateTime()} - ${sleep.endTime.formatDateTime()}")
             Text(
-                Duration.between(sleep.startTime, sleep.endTime).formatMinutesCompat(),
+                Duration.between(sleep.startTime, sleep.endTime).toMinutes().formatMinutes(),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                listOfNotNull(sleep.sleepType.label, sleep.fallingAsleepMethod?.label, sleep.caregiver?.let { "记录人 $it" }).joinToString(" · "),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             sleep.note?.let {
@@ -296,36 +606,36 @@ private fun HomeSleepCard(sleep: SleepEntity) {
     }
 }
 
+private data class ReferenceBadgeData(
+    val text: String,
+    val color: Color,
+)
+
 @Composable
-private fun HomeDiaperCard(diaper: DiaperEntity) {
-    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Text(diaper.type.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text(diaper.happenedAt.formatDateTime())
-            val extra = buildList {
-                diaper.poopColor?.let { add(it.label) }
-                diaper.poopTexture?.let { add(it.label) }
-                diaper.note?.let { add(it) }
-            }
-            if (extra.isNotEmpty()) {
-                Text(extra.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (diaper.poopColor == com.littlegrow.app.data.PoopColor.RED ||
-                diaper.poopColor == com.littlegrow.app.data.PoopColor.WHITE
-            ) {
-                Text(
-                    text = "注意：该颜色建议尽快留意宝宝状态。",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-        }
+private fun ReferenceBadgeComposable(
+    text: String,
+    color: Color,
+) {
+    Surface(
+        color = color,
+        shape = MaterialTheme.shapes.small,
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 
-private fun Duration.formatMinutesCompat(): String = toMinutes().formatMinutes()
+private fun referenceColor(
+    value: Double,
+    min: Double,
+    max: Double,
+): Color {
+    return when {
+        value < min -> Color(0xFFFFE7C2)
+        value > max -> Color(0xFFFFD7C9)
+        else -> Color(0xFFD9F1D7)
+    }
+}

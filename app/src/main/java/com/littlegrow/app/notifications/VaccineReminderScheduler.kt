@@ -152,6 +152,7 @@ class VaccineReminderRestoreReceiver : BroadcastReceiver() {
         receiverScope.launch {
             try {
                 VaccineReminderScheduler.rescheduleFromStorage(context)
+                QuickActionNotificationController.restoreFromStorage(context)
             } finally {
                 pendingResult.finish()
             }

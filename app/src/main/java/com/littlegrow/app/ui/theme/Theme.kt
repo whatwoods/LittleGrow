@@ -1,14 +1,18 @@
 package com.littlegrow.app.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.littlegrow.app.data.AppTheme
 import com.littlegrow.app.data.ThemeMode
+import java.time.LocalTime
 
 data class ThemePreviewColors(
     val background: Color,
@@ -177,9 +181,25 @@ fun AppTheme.previewColors(): ThemePreviewColors = appThemeSpec(this).preview
 fun LittleGrowTheme(
     themeMode: ThemeMode,
     appTheme: AppTheme,
+    largeTextModeEnabled: Boolean = false,
+    darkModeScheduleEnabled: Boolean = false,
+    darkModeStartHour: Int = 20,
+    darkModeEndHour: Int = 7,
     content: @Composable () -> Unit,
 ) {
-    val isDark = when (themeMode) {
+    val resolvedThemeMode = if (
+        darkModeScheduleEnabled &&
+        isWithinDarkSchedule(
+            currentHour = LocalTime.now().hour,
+            startHour = darkModeStartHour,
+            endHour = darkModeEndHour,
+        )
+    ) {
+        ThemeMode.DARK
+    } else {
+        themeMode
+    }
+    val isDark = when (resolvedThemeMode) {
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
@@ -189,11 +209,30 @@ fun LittleGrowTheme(
     } else {
         appThemeSpec(appTheme).lightColors
     }
+    val typography = typographyForScale(if (largeTextModeEnabled) 1.2f else 1f)
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        shapes = Shapes,
-        content = content,
-    )
+    CompositionLocalProvider(
+        LocalMinimumInteractiveComponentSize provides if (largeTextModeEnabled) 64.dp else 48.dp,
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = typography,
+            shapes = Shapes,
+            content = content,
+        )
+    }
+}
+
+private fun isWithinDarkSchedule(
+    currentHour: Int,
+    startHour: Int,
+    endHour: Int,
+): Boolean {
+    return if (startHour == endHour) {
+        true
+    } else if (startHour < endHour) {
+        currentHour in startHour until endHour
+    } else {
+        currentHour >= startHour || currentHour < endHour
+    }
 }

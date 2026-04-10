@@ -64,6 +64,12 @@ data class WhoReferenceSet(
     }
 }
 
+data class GrowthVelocityRange(
+    val min: Float,
+    val max: Float,
+    val unit: String,
+)
+
 object WhoGrowthStandards {
     private val cache = ConcurrentHashMap<String, WhoReferenceSet>()
 
@@ -72,6 +78,25 @@ object WhoGrowthStandards {
         gender: Gender,
         metric: GrowthMetric,
     ): WhoReferenceSet {
+        if (metric == GrowthMetric.BMI) {
+            val cacheKey = "${gender.name}_BMI"
+            return cache.getOrPut(cacheKey) {
+                val weightReference = load(context, gender, GrowthMetric.WEIGHT)
+                val heightReference = load(context, gender, GrowthMetric.HEIGHT)
+                val points = weightReference.points.mapNotNull { weightPoint ->
+                    val heightPoint = heightReference.points.find { it.ageDays == weightPoint.ageDays } ?: return@mapNotNull null
+                    WhoCurvePoint(
+                        ageDays = weightPoint.ageDays,
+                        p3 = bmi(weightPoint.p3, heightPoint.p3),
+                        p15 = bmi(weightPoint.p15, heightPoint.p15),
+                        p50 = bmi(weightPoint.p50, heightPoint.p50),
+                        p85 = bmi(weightPoint.p85, heightPoint.p85),
+                        p97 = bmi(weightPoint.p97, heightPoint.p97),
+                    )
+                }
+                WhoReferenceSet(points = points)
+            }
+        }
         val assetName = assetName(gender, metric)
         return cache.getOrPut(assetName) {
             context.assets.open("who/$assetName").bufferedReader().useLines { lines ->
@@ -106,7 +131,48 @@ object WhoGrowthStandards {
             GrowthMetric.WEIGHT -> "weight"
             GrowthMetric.HEIGHT -> "height"
             GrowthMetric.HEAD -> "head"
+            GrowthMetric.BMI -> "bmi"
         }
         return "${genderKey}_${metricKey}.csv"
+    }
+
+    fun monthlyVelocityRange(
+        metric: GrowthMetric,
+        ageMonths: Int,
+    ): GrowthVelocityRange? {
+        return when (metric) {
+            GrowthMetric.WEIGHT -> when {
+                ageMonths < 3 -> GrowthVelocityRange(500f, 1000f, "g/月")
+                ageMonths < 6 -> GrowthVelocityRange(350f, 700f, "g/月")
+                ageMonths < 12 -> GrowthVelocityRange(150f, 400f, "g/月")
+                ageMonths < 24 -> GrowthVelocityRange(80f, 250f, "g/月")
+                else -> GrowthVelocityRange(50f, 180f, "g/月")
+            }
+
+            GrowthMetric.HEIGHT -> when {
+                ageMonths < 3 -> GrowthVelocityRange(2.5f, 4.5f, "cm/月")
+                ageMonths < 6 -> GrowthVelocityRange(1.5f, 3.0f, "cm/月")
+                ageMonths < 12 -> GrowthVelocityRange(1.0f, 2.0f, "cm/月")
+                ageMonths < 24 -> GrowthVelocityRange(0.6f, 1.4f, "cm/月")
+                else -> GrowthVelocityRange(0.4f, 1.0f, "cm/月")
+            }
+
+            GrowthMetric.HEAD -> when {
+                ageMonths < 3 -> GrowthVelocityRange(0.8f, 1.5f, "cm/月")
+                ageMonths < 6 -> GrowthVelocityRange(0.4f, 1.0f, "cm/月")
+                ageMonths < 12 -> GrowthVelocityRange(0.2f, 0.6f, "cm/月")
+                else -> GrowthVelocityRange(0.1f, 0.3f, "cm/月")
+            }
+
+            GrowthMetric.BMI -> null
+        }
+    }
+
+    private fun bmi(
+        weightKg: Float,
+        heightCm: Float,
+    ): Float {
+        val meter = heightCm / 100f
+        return if (meter <= 0f) 0f else weightKg / (meter * meter)
     }
 }

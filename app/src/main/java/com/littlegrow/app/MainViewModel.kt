@@ -10,31 +10,54 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.littlegrow.app.data.ActivityDraft
 import com.littlegrow.app.data.ActivityEntity
+import com.littlegrow.app.data.AgeBasedReference
 import com.littlegrow.app.data.AppDatabase
 import com.littlegrow.app.data.AppTheme
 import com.littlegrow.app.data.BabyProfile
+import com.littlegrow.app.data.BackupFrequency
+import com.littlegrow.app.data.BackupManager
+import com.littlegrow.app.data.CsvImporter
 import com.littlegrow.app.data.DiaperDraft
 import com.littlegrow.app.data.DiaperEntity
+import com.littlegrow.app.data.EncouragementProvider
 import com.littlegrow.app.data.FeedingDraft
 import com.littlegrow.app.data.FeedingEntity
 import com.littlegrow.app.data.FeedingType
 import com.littlegrow.app.data.GrowthDraft
 import com.littlegrow.app.data.GrowthEntity
+import com.littlegrow.app.data.HandoverSummary
+import com.littlegrow.app.data.HandoverSummaryGenerator
+import com.littlegrow.app.data.HomeModule
 import com.littlegrow.app.data.HomeSummary
 import com.littlegrow.app.data.LittleGrowRepository
 import com.littlegrow.app.data.MedicalDraft
 import com.littlegrow.app.data.MedicalEntity
+import com.littlegrow.app.data.MedicalSummary
+import com.littlegrow.app.data.MedicalSummaryGenerator
+import com.littlegrow.app.data.MemorySnapshot
 import com.littlegrow.app.data.MilestoneDraft
 import com.littlegrow.app.data.MilestoneEntity
+import com.littlegrow.app.data.MonthlyGuide
+import com.littlegrow.app.data.MonthlyGuideEntry
 import com.littlegrow.app.data.PreferencesRepository
 import com.littlegrow.app.data.RecordTab
+import com.littlegrow.app.data.SmartDefaultsProvider
 import com.littlegrow.app.data.SleepDraft
 import com.littlegrow.app.data.SleepEntity
+import com.littlegrow.app.data.StageConfigProvider
+import com.littlegrow.app.data.StageReportEntry
+import com.littlegrow.app.data.StageReportGenerator
 import com.littlegrow.app.data.ThemeMode
+import com.littlegrow.app.data.TrendAnalyzer
+import com.littlegrow.app.data.TrendInsight
 import com.littlegrow.app.data.VaccineEntity
+import com.littlegrow.app.data.VaccineReactionDraft
 import com.littlegrow.app.data.toProfile
+import com.littlegrow.app.data.AutoBackupWorker
 import com.littlegrow.app.export.writeCsvExport
 import com.littlegrow.app.export.writePdfExport
+import com.littlegrow.app.notifications.AnomalyChecker
+import com.littlegrow.app.notifications.QuickActionNotificationController
 import com.littlegrow.app.notifications.VaccineReminderScheduler
 import com.littlegrow.app.widget.LittleGrowWidgetUpdater
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,6 +75,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.Period
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 data class BreastfeedingTimerState(
     val activeType: FeedingType? = null,
@@ -69,6 +93,9 @@ enum class AppLaunchState {
 class MainViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
+    private val smartDefaultsProvider = SmartDefaultsProvider()
+    private val backupManager = BackupManager(application, AppDatabase.getInstance(application))
+    private val csvImporter = CsvImporter(application, AppDatabase.getInstance(application))
     private val repository = LittleGrowRepository(
         appContext = application,
         database = AppDatabase.getInstance(application),
@@ -82,6 +109,10 @@ class MainViewModel(
     private val _pendingDestination = MutableStateFlow<AppDestination?>(null)
     private val _pendingRecordQuickAction = MutableStateFlow<RecordQuickAction?>(null)
     private val _launchState = MutableStateFlow(AppLaunchState.LOADING)
+    private val _userMessage = MutableStateFlow<String?>(null)
+    private val _medicalSummary = MutableStateFlow<MedicalSummary?>(null)
+    private val _handoverSummary = MutableStateFlow<HandoverSummary?>(null)
+    private val _homeCaregiverFilter = MutableStateFlow<String?>(null)
 
     val themeMode: StateFlow<ThemeMode> = repository.themeMode.stateIn(
         scope = viewModelScope,
@@ -157,6 +188,84 @@ class MainViewModel(
         initialValue = true,
     )
 
+    val quickActionNotificationsEnabled: StateFlow<Boolean> = repository.quickActionNotificationsEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = false,
+    )
+
+    val anomalyRemindersEnabled = repository.anomalyRemindersEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = false,
+    )
+
+    val diaperRemindersEnabled = repository.diaperRemindersEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = false,
+    )
+
+    val largeTextModeEnabled = repository.largeTextModeEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = false,
+    )
+
+    val darkModeScheduleEnabled = repository.darkModeScheduleEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = false,
+    )
+
+    val darkModeStartHour = repository.darkModeStartHour.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = 20,
+    )
+
+    val darkModeEndHour = repository.darkModeEndHour.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = 7,
+    )
+
+    val homeModules = repository.homeModules.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptySet(),
+    )
+
+    val caregivers = repository.caregivers.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = listOf("妈妈", "爸爸"),
+    )
+
+    val currentCaregiver = repository.currentCaregiver.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = "妈妈",
+    )
+
+    val autoBackupFrequency = repository.autoBackupFrequency.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = BackupFrequency.OFF,
+    )
+
+    private val seenGuides = repository.seenGuides.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptySet(),
+    )
+
+    private val shownCelebrations = repository.shownCelebrations.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptySet(),
+    )
+
     val currentRecordTab: StateFlow<RecordTab> = selectedRecordTab.asStateFlow()
     val exportMessage: StateFlow<String?> = _exportMessage.asStateFlow()
     val isExporting: StateFlow<Boolean> = _isExporting.asStateFlow()
@@ -164,8 +273,52 @@ class MainViewModel(
     val pendingDestination: StateFlow<AppDestination?> = _pendingDestination.asStateFlow()
     val pendingRecordQuickAction: StateFlow<RecordQuickAction?> = _pendingRecordQuickAction.asStateFlow()
     val launchState: StateFlow<AppLaunchState> = _launchState.asStateFlow()
+    val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+    val medicalSummary: StateFlow<MedicalSummary?> = _medicalSummary.asStateFlow()
+    val handoverSummary: StateFlow<HandoverSummary?> = _handoverSummary.asStateFlow()
+    val homeCaregiverFilter: StateFlow<String?> = _homeCaregiverFilter.asStateFlow()
 
-    val homeSummary: StateFlow<HomeSummary> = combine(
+    val ageMonths = profile.map { baby ->
+        baby?.birthday?.let { ChronoUnit.MONTHS.between(it, LocalDate.now()).toInt() } ?: 0
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = 0,
+    )
+
+    val orderedRecordTabs = ageMonths.map { age ->
+        StageConfigProvider.forAgeMonths(age).prioritizedTabs
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = RecordTab.entries,
+    )
+
+    val activeHomeModules = combine(ageMonths, homeModules) { age, modules ->
+        val stageModules = StageConfigProvider.forAgeMonths(age).prioritizedModules
+        val visible = modules.ifEmpty { stageModules.toSet() }
+        (stageModules + HomeModule.entries).distinct().filter { it in visible }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = HomeModule.entries,
+    )
+
+    val feedingFormDefaults = combine(profile, feedings) { profile, feedings ->
+        smartDefaultsProvider.buildFeedingDefaults(
+            profile = profile,
+            feedings = feedings,
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = smartDefaultsProvider.buildFeedingDefaults(
+            profile = null,
+            feedings = emptyList(),
+        ),
+    )
+
+    private val homeSummaryInputs = combine(
         profile,
         feedings,
         sleeps,
@@ -179,7 +332,11 @@ class MainViewModel(
             diapers = diapers,
             growthRecords = growthRecords,
         )
-    }.combine(milestones) { inputs, milestones ->
+    }
+
+    val homeSummary: StateFlow<HomeSummary> = homeSummaryInputs
+        .combine(milestones) { inputs, milestones -> inputs to milestones }
+        .combine(homeCaregiverFilter) { (inputs, milestones), caregiverFilter ->
         buildHomeSummary(
             profile = inputs.profile,
             feedings = inputs.feedings,
@@ -187,6 +344,7 @@ class MainViewModel(
             diapers = inputs.diapers,
             growth = inputs.growthRecords,
             milestones = milestones,
+            caregiverFilter = caregiverFilter,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -197,12 +355,100 @@ class MainViewModel(
             todayFeedings = 0,
             todayDiapers = 0,
             todaySleepMinutes = 0L,
+            todaySleepReference = null,
+            todayFeedingReference = null,
             latestGrowth = null,
             latestMilestone = null,
             recentFeedings = emptyList(),
             recentSleeps = emptyList(),
             recentDiapers = emptyList(),
         ),
+    )
+
+    val weeklyTrends: StateFlow<List<TrendInsight>> = combine(feedings, sleeps) { feedings, sleeps ->
+        TrendAnalyzer.weeklyTrends(LocalDate.now(), feedings, sleeps)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList(),
+    )
+
+    val routineInsights = combine(feedings, sleeps) { feedings, sleeps ->
+        TrendAnalyzer.routineInsights(feedings, sleeps)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList(),
+    )
+
+    val encouragementText = combine(homeSummary, feedings) { summary, feedings ->
+        EncouragementProvider.build(
+            todayFeedings = summary.todayFeedings,
+            todaySleepMinutes = summary.todaySleepMinutes,
+            consecutiveDays = consecutiveRecordedDays(feedings),
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = "",
+    )
+
+    val monthlyGuide = combine(ageMonths, seenGuides) { age, seenGuides ->
+        MonthlyGuide.guideFor(age)?.takeIf { guide -> guide.month.toString() !in seenGuides }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = null,
+    )
+
+    private val stageReportRecordInputs = combine(
+        feedings,
+        sleeps,
+        diapers,
+        growthRecords,
+        milestones,
+    ) { feedings, sleeps, diapers, growthRecords, milestones ->
+        StageReportRecordInputs(
+            feedings = feedings,
+            sleeps = sleeps,
+            diapers = diapers,
+            growthRecords = growthRecords,
+            milestones = milestones,
+        )
+    }
+
+    val pendingStageReport = combine(profile, stageReportRecordInputs, shownCelebrations) { profile, inputs, shown ->
+        val ageDays = profile?.birthday
+            ?.let { ChronoUnit.DAYS.between(it, LocalDate.now()).toInt() }
+            ?: return@combine null
+        StageReportGenerator.pendingReport(
+            birthday = profile.birthday,
+            ageDays = ageDays,
+            shownKeys = shown,
+            feedings = inputs.feedings,
+            sleeps = inputs.sleeps,
+            diapers = inputs.diapers,
+            growthRecords = inputs.growthRecords,
+            milestones = inputs.milestones,
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = null,
+    )
+
+    val memoryOfTheDay = combine(profile, feedings, sleeps, milestones) { profile, feedings, sleeps, milestones ->
+        buildMemoryOfTheDay(profile, feedings, sleeps, milestones)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = null,
+    )
+
+    val nightWakeCount = sleeps.map { computeNightWakeCount(it) }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = 0,
     )
 
     init {
@@ -227,6 +473,8 @@ class MainViewModel(
                 }
             }
             refreshVaccineReminders()
+            refreshQuickActionNotifications()
+            refreshBackgroundWorkers()
             refreshWidgets()
         }
     }
@@ -283,33 +531,19 @@ class MainViewModel(
     }
 
     fun saveBreastfeedingTimer() {
-        val state = _breastfeedingTimer.value
-        val startedAt = state.startedAtEpochMillis ?: return
-        val type = state.activeType ?: return
-        val now = System.currentTimeMillis()
-        val minutes = ((now - startedAt) / 60_000L).toInt().coerceAtLeast(1)
-        val happenedAt = LocalDateTime.ofInstant(
-            Instant.ofEpochMilli(startedAt),
-            ZoneId.systemDefault(),
-        )
-        _breastfeedingTimer.value = BreastfeedingTimerState()
         mutateData {
-            repository.addFeeding(
-                FeedingDraft(
-                    type = type,
-                    happenedAt = happenedAt,
-                    durationMinutes = minutes,
-                    amountMl = null,
-                    foodName = null,
-                    photoPath = null,
-                    note = null,
-                ),
-            )
+            saveBreastfeedingTimerIfRunning()
         }
     }
 
     fun addSleep(draft: SleepDraft) {
-        addRecord(draft, LittleGrowRepository::addSleep)
+        mutateData {
+            val autoStopped = saveBreastfeedingTimerIfRunning()
+            repository.addSleep(draft)
+            if (autoStopped) {
+                _userMessage.value = "已自动结束喂奶记录。"
+            }
+        }
     }
 
     fun updateSleep(
@@ -407,11 +641,21 @@ class MainViewModel(
         }
     }
 
+    fun updateVaccineReaction(
+        scheduleKey: String,
+        draft: VaccineReactionDraft,
+    ) {
+        mutateData {
+            repository.updateVaccineReaction(scheduleKey, draft)
+        }
+    }
+
     fun completeOnboarding(profile: BabyProfile) {
         viewModelScope.launch {
             repository.saveProfile(profile)
             repository.setOnboardingCompleted()
             _launchState.value = AppLaunchState.READY
+            _homeCaregiverFilter.value = null
             refreshVaccineReminders()
             refreshWidgets()
         }
@@ -432,6 +676,66 @@ class MainViewModel(
         }
     }
 
+    fun setQuickActionNotificationsEnabled(enabled: Boolean) {
+        repository.setQuickActionNotificationsEnabled(enabled)
+        viewModelScope.launch {
+            refreshQuickActionNotifications()
+        }
+    }
+
+    fun setAnomalyRemindersEnabled(enabled: Boolean) {
+        repository.setAnomalyRemindersEnabled(enabled)
+        viewModelScope.launch {
+            refreshBackgroundWorkers()
+        }
+    }
+
+    fun setDiaperRemindersEnabled(enabled: Boolean) {
+        repository.setDiaperRemindersEnabled(enabled)
+        viewModelScope.launch {
+            refreshBackgroundWorkers()
+        }
+    }
+
+    fun setLargeTextModeEnabled(enabled: Boolean) {
+        repository.setLargeTextModeEnabled(enabled)
+    }
+
+    fun setDarkModeSchedule(
+        enabled: Boolean,
+        startHour: Int,
+        endHour: Int,
+    ) {
+        repository.setDarkModeSchedule(enabled, startHour, endHour)
+    }
+
+    fun setHomeModules(modules: Set<HomeModule>) {
+        repository.setHomeModules(modules)
+    }
+
+    fun setCaregivers(raw: String) {
+        repository.setCaregivers(
+            raw.split('、', ',', '，', '\n')
+                .map { it.trim() }
+                .filter { it.isNotEmpty() },
+        )
+    }
+
+    fun setCurrentCaregiver(name: String) {
+        repository.setCurrentCaregiver(name)
+    }
+
+    fun setHomeCaregiverFilter(name: String?) {
+        _homeCaregiverFilter.value = name?.takeIf { it.isNotBlank() }
+    }
+
+    fun setAutoBackupFrequency(frequency: BackupFrequency) {
+        repository.setAutoBackupFrequency(frequency)
+        viewModelScope.launch {
+            refreshBackgroundWorkers()
+        }
+    }
+
     fun exportCsv(uri: Uri) {
         exportFile(uri = uri, label = "CSV") { outputStream, snapshot ->
             writeCsvExport(outputStream, snapshot)
@@ -446,6 +750,99 @@ class MainViewModel(
 
     fun clearExportMessage() {
         _exportMessage.value = null
+    }
+
+    fun consumeUserMessage() {
+        _userMessage.value = null
+    }
+
+    fun dismissMonthlyGuide(month: Int) {
+        repository.markGuideSeen(month)
+    }
+
+    fun dismissStageReport(day: Int) {
+        repository.markCelebrationShown(day.toString())
+    }
+
+    fun buildMedicalSummary(days: Long = 30) {
+        _medicalSummary.value = MedicalSummaryGenerator.build(
+            profile = profile.value,
+            days = days,
+            now = LocalDate.now(),
+            feedings = feedings.value,
+            sleeps = sleeps.value,
+            diapers = diapers.value,
+            medicalRecords = medicalRecords.value,
+            growthRecords = growthRecords.value,
+        )
+    }
+
+    fun clearMedicalSummary() {
+        _medicalSummary.value = null
+    }
+
+    fun buildHandoverSummary(from: LocalDateTime) {
+        _handoverSummary.value = HandoverSummaryGenerator.build(
+            from = from,
+            to = LocalDateTime.now(),
+            feedings = feedings.value,
+            sleeps = sleeps.value,
+            diapers = diapers.value,
+            medicalRecords = medicalRecords.value,
+            activityRecords = activityRecords.value,
+        )
+    }
+
+    fun clearHandoverSummary() {
+        _handoverSummary.value = null
+    }
+
+    fun exportBackup(uri: Uri) {
+        viewModelScope.launch {
+            _isExporting.value = true
+            val result = runCatching {
+                backupManager.exportBackup(uri, repository.buildExportSnapshot())
+            }
+            _isExporting.value = false
+            _exportMessage.value = result.fold(
+                onSuccess = { "完整备份已导出。" },
+                onFailure = { "备份导出失败：${it.message ?: "未知错误"}" },
+            )
+        }
+    }
+
+    fun restoreBackup(uri: Uri) {
+        viewModelScope.launch {
+            _isExporting.value = true
+            val result = runCatching {
+                backupManager.restoreBackup(uri)
+                refreshVaccineReminders()
+                refreshBackgroundWorkers()
+                refreshWidgets()
+            }
+            _isExporting.value = false
+            _exportMessage.value = result.fold(
+                onSuccess = { "备份恢复完成。" },
+                onFailure = { "备份恢复失败：${it.message ?: "未知错误"}" },
+            )
+        }
+    }
+
+    fun importCsv(uri: Uri) {
+        viewModelScope.launch {
+            _isExporting.value = true
+            val result = runCatching {
+                val count = csvImporter.importCsv(uri)
+                refreshVaccineReminders()
+                refreshWidgets()
+                count
+            }
+            _isExporting.value = false
+            _exportMessage.value = result.fold(
+                onSuccess = { "CSV 已导入 $it 条记录。" },
+                onFailure = { "CSV 导入失败：${it.message ?: "未知错误"}" },
+            )
+        }
     }
 
     private fun mutateData(
@@ -497,10 +894,54 @@ class MainViewModel(
         )
     }
 
+    private suspend fun refreshQuickActionNotifications() {
+        QuickActionNotificationController.sync(
+            context = getApplication(),
+            enabled = repository.quickActionNotificationsEnabled.first(),
+        )
+    }
+
+    private suspend fun refreshBackgroundWorkers() {
+        val anomalyEnabled = repository.anomalyRemindersEnabled.first() || repository.diaperRemindersEnabled.first()
+        AnomalyChecker.sync(
+            context = getApplication(),
+            enabled = anomalyEnabled,
+        )
+        AutoBackupWorker.sync(
+            context = getApplication(),
+            frequency = repository.autoBackupFrequency.first(),
+        )
+    }
+
     private suspend fun refreshWidgets() {
         runCatching {
             LittleGrowWidgetUpdater.updateAll(getApplication())
         }
+    }
+
+    private suspend fun saveBreastfeedingTimerIfRunning(): Boolean {
+        val state = _breastfeedingTimer.value
+        val startedAt = state.startedAtEpochMillis ?: return false
+        val type = state.activeType ?: return false
+        val now = System.currentTimeMillis()
+        val minutes = ((now - startedAt) / 60_000L).toInt().coerceAtLeast(1)
+        val happenedAt = LocalDateTime.ofInstant(
+            Instant.ofEpochMilli(startedAt),
+            ZoneId.systemDefault(),
+        )
+        _breastfeedingTimer.value = BreastfeedingTimerState()
+        repository.addFeeding(
+            FeedingDraft(
+                type = type,
+                happenedAt = happenedAt,
+                durationMinutes = minutes,
+                amountMl = null,
+                foodName = null,
+                photoPath = null,
+                note = null,
+            ),
+        )
+        return true
     }
 
     private fun exportFile(
@@ -533,19 +974,33 @@ class MainViewModel(
         diapers: List<DiaperEntity>,
         growth: List<GrowthEntity>,
         milestones: List<MilestoneEntity>,
+        caregiverFilter: String?,
     ): HomeSummary {
         val today = LocalDate.now()
+        val filteredFeedings = feedings.filterFeedingsByCaregiver(caregiverFilter)
+        val filteredSleeps = sleeps.filterSleepsByCaregiver(caregiverFilter)
+        val filteredDiapers = diapers.filterDiapersByCaregiver(caregiverFilter)
         return HomeSummary(
             profile = profile,
             ageText = profile?.birthday?.let(::formatAge) ?: "请先填写宝宝资料",
-            todayFeedings = feedings.count { it.happenedAt.toLocalDate() == today },
-            todayDiapers = diapers.count { it.happenedAt.toLocalDate() == today },
-            todaySleepMinutes = calculateTodaySleepMinutes(sleeps, today),
+            todayFeedings = filteredFeedings.count { it.happenedAt.toLocalDate() == today },
+            todayDiapers = filteredDiapers.count { it.happenedAt.toLocalDate() == today },
+            todaySleepMinutes = calculateTodaySleepMinutes(filteredSleeps, today),
+            todaySleepReference = profile?.birthday?.let {
+                val ageMonths = ChronoUnit.MONTHS.between(it, today).toInt()
+                val range = AgeBasedReference.sleepHoursPerDay(ageMonths)
+                "参考 ${range.min.toInt()}-${range.max.toInt()} ${range.unit}"
+            },
+            todayFeedingReference = profile?.birthday?.let {
+                val ageMonths = ChronoUnit.MONTHS.between(it, today).toInt()
+                val range = AgeBasedReference.feedingTimesPerDay(ageMonths)
+                "参考 ${range.min.toInt()}-${range.max.toInt()} ${range.unit}"
+            },
             latestGrowth = growth.maxByOrNull { it.date },
             latestMilestone = milestones.maxByOrNull { it.achievedDate },
-            recentFeedings = feedings.take(3),
-            recentSleeps = sleeps.take(2),
-            recentDiapers = diapers.take(3),
+            recentFeedings = filteredFeedings.take(3),
+            recentSleeps = filteredSleeps.take(2),
+            recentDiapers = filteredDiapers.take(3),
         )
     }
 
@@ -584,6 +1039,53 @@ class MainViewModel(
             }
         }
     }
+
+    private fun consecutiveRecordedDays(feedings: List<FeedingEntity>): Int {
+        if (feedings.isEmpty()) return 0
+        val dates = feedings.map { it.happenedAt.toLocalDate() }.distinct().sortedDescending()
+        var count = 0
+        var expected = LocalDate.now()
+        while (expected in dates) {
+            count += 1
+            expected = expected.minusDays(1)
+        }
+        return count
+    }
+
+    private fun computeNightWakeCount(sleeps: List<SleepEntity>): Int {
+        val targetDate = LocalDate.now().minusDays(1)
+        val nightSleeps = sleeps
+            .filter { it.sleepType == com.littlegrow.app.data.SleepType.NIGHT_SLEEP && it.startTime.toLocalDate() >= targetDate.minusDays(1) }
+            .sortedBy { it.startTime }
+        if (nightSleeps.size < 2) return 0
+        return nightSleeps.zipWithNext().count { (previous, next) ->
+            Duration.between(previous.endTime, next.startTime).toMinutes() > 10
+        }
+    }
+
+    private fun buildMemoryOfTheDay(
+        profile: BabyProfile?,
+        feedings: List<FeedingEntity>,
+        sleeps: List<SleepEntity>,
+        milestones: List<MilestoneEntity>,
+    ): MemorySnapshot? {
+        val baby = profile ?: return null
+        if (ChronoUnit.DAYS.between(baby.birthday, LocalDate.now()) < 365) return null
+        val target = LocalDate.now().minusYears(1)
+        val targetFeedings = feedings.filter { it.happenedAt.toLocalDate() == target }
+        val targetSleeps = sleeps.filter { it.startTime.toLocalDate() == target }
+        val targetMilestones = milestones.filter { it.achievedDate == target }
+        if (targetFeedings.isEmpty() && targetSleeps.isEmpty() && targetMilestones.isEmpty()) return null
+        return MemorySnapshot(
+            title = "一年前的今天",
+            lines = buildList {
+                add("${targetFeedings.size} 次喂养")
+                add("${targetSleeps.size} 段睡眠")
+                if (targetMilestones.isNotEmpty()) add("当天达成里程碑：${targetMilestones.joinToString { it.title }}")
+            },
+            photoPaths = targetMilestones.mapNotNull { it.photoPath },
+        )
+    }
 }
 
 private data class HomeSummaryInputs(
@@ -593,3 +1095,23 @@ private data class HomeSummaryInputs(
     val diapers: List<DiaperEntity>,
     val growthRecords: List<GrowthEntity>,
 )
+
+private data class StageReportRecordInputs(
+    val feedings: List<FeedingEntity>,
+    val sleeps: List<SleepEntity>,
+    val diapers: List<DiaperEntity>,
+    val growthRecords: List<GrowthEntity>,
+    val milestones: List<MilestoneEntity>,
+)
+
+private fun List<FeedingEntity>.filterFeedingsByCaregiver(caregiver: String?): List<FeedingEntity> {
+    return if (caregiver == null) this else filter { it.caregiver == caregiver }
+}
+
+private fun List<SleepEntity>.filterSleepsByCaregiver(caregiver: String?): List<SleepEntity> {
+    return if (caregiver == null) this else filter { it.caregiver == caregiver }
+}
+
+private fun List<DiaperEntity>.filterDiapersByCaregiver(caregiver: String?): List<DiaperEntity> {
+    return if (caregiver == null) this else filter { it.caregiver == caregiver }
+}

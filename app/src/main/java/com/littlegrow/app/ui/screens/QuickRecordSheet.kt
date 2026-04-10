@@ -23,13 +23,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.littlegrow.app.MainViewModel
+import com.littlegrow.app.data.FeedingFormDefaults
 import com.littlegrow.app.data.RecordTab
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuickRecordSheet(
     viewModel: MainViewModel,
-    onDismiss: () -> Unit
+    feedingFormDefaults: FeedingFormDefaults,
+    caregivers: List<String>,
+    currentCaregiver: String,
+    onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selectedTab by rememberSaveable { mutableStateOf<RecordTab?>(null) }
@@ -85,6 +89,9 @@ fun QuickRecordSheet(
                 when (currentTab) {
                     RecordTab.FEEDING -> AddFeedingForm(
                         initial = null,
+                        defaults = feedingFormDefaults,
+                        caregivers = caregivers,
+                        currentCaregiver = currentCaregiver,
                         onSubmit = { draft ->
                             viewModel.addFeeding(draft)
                             onDismiss()
@@ -94,6 +101,8 @@ fun QuickRecordSheet(
                     )
                     RecordTab.SLEEP -> AddSleepForm(
                         initial = null,
+                        caregivers = caregivers,
+                        currentCaregiver = currentCaregiver,
                         onSubmit = { draft ->
                             viewModel.addSleep(draft)
                             onDismiss()
@@ -102,6 +111,8 @@ fun QuickRecordSheet(
                     )
                     RecordTab.DIAPER -> AddDiaperForm(
                         initial = null,
+                        caregivers = caregivers,
+                        currentCaregiver = currentCaregiver,
                         onSubmit = { draft ->
                             viewModel.addDiaper(draft)
                             onDismiss()
@@ -110,6 +121,8 @@ fun QuickRecordSheet(
                     )
                     RecordTab.MEDICAL -> AddMedicalForm(
                         initial = null,
+                        caregivers = caregivers,
+                        currentCaregiver = currentCaregiver,
                         onSubmit = { draft ->
                             viewModel.addMedical(draft)
                             onDismiss()
@@ -118,6 +131,8 @@ fun QuickRecordSheet(
                     )
                     RecordTab.ACTIVITY -> AddActivityForm(
                         initial = null,
+                        caregivers = caregivers,
+                        currentCaregiver = currentCaregiver,
                         onSubmit = { draft ->
                             viewModel.addActivity(draft)
                             onDismiss()

@@ -29,21 +29,33 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.littlegrow.app.data.BabyProfile
+import com.littlegrow.app.data.DiaperEntity
+import com.littlegrow.app.data.FeedingEntity
+import com.littlegrow.app.data.GrowthEntity
 import com.littlegrow.app.data.MilestoneCategory
 import com.littlegrow.app.data.MilestoneDraft
 import com.littlegrow.app.data.MilestoneEntity
+import com.littlegrow.app.data.MonthlyGuide
+import com.littlegrow.app.data.StageReportEntry
+import com.littlegrow.app.data.StageReportGenerator
+import com.littlegrow.app.data.SleepEntity
 import com.littlegrow.app.ui.NativeDatePickerField
 import com.littlegrow.app.ui.PhotoActionRow
 import com.littlegrow.app.ui.PhotoPreviewCard
 import com.littlegrow.app.ui.dateFormatter
 import com.littlegrow.app.ui.formatDate
 import com.littlegrow.app.ui.rememberManagedPhotoAttachment
+import java.time.Duration
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 @Composable
 fun TimelineScreen(
     profile: BabyProfile?,
+    feedings: List<FeedingEntity>,
+    sleeps: List<SleepEntity>,
+    diapers: List<DiaperEntity>,
+    growthRecords: List<GrowthEntity>,
     milestones: List<MilestoneEntity>,
     contentPadding: PaddingValues,
     onAddMilestone: (MilestoneDraft) -> Unit,
@@ -52,6 +64,21 @@ fun TimelineScreen(
 ) {
     var showDialog by rememberSaveable { mutableStateOf(false) }
     var editingMilestone by remember { mutableStateOf<MilestoneEntity?>(null) }
+    val ageDays = profile?.birthday?.let { ChronoUnit.DAYS.between(it, LocalDate.now()).toInt() } ?: 0
+    val stageReports = profile?.birthday?.let { birthday ->
+        StageReportGenerator.reachedReports(
+            birthday = birthday,
+            ageDays = ageDays,
+            feedings = feedings,
+            sleeps = sleeps,
+            diapers = diapers,
+            growthRecords = growthRecords,
+            milestones = milestones,
+        )
+    }.orEmpty()
+    val monthlyGuides = (0..(profile?.birthday?.let { ChronoUnit.MONTHS.between(it, LocalDate.now()).toInt() } ?: 0).coerceAtMost(24))
+        .mapNotNull(MonthlyGuide::guideFor)
+        .reversed()
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -78,6 +105,49 @@ fun TimelineScreen(
                         )
                     }
                 }
+            }
+
+            if (stageReports.isNotEmpty()) {
+                item {
+                    TimelineSectionTitle("阶段小结")
+                }
+                items(stageReports, key = { it.day }) { report ->
+                    StageReportCard(report)
+                }
+            }
+
+            if (monthlyGuides.isNotEmpty()) {
+                item {
+                    TimelineSectionTitle("月龄指南")
+                }
+                items(monthlyGuides, key = { it.month }) { guide ->
+                    ElevatedCard {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(guide.title, fontWeight = FontWeight.SemiBold)
+                            Text(guide.developmentHighlights.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+
+            item {
+                TimelineSectionTitle("年度总结")
+            }
+            item {
+                YearlySummaryCard(
+                    feedings = feedings,
+                    sleeps = sleeps,
+                    diapers = diapers,
+                )
+            }
+
+            item {
+                TimelineSectionTitle("里程碑")
             }
 
             if (milestones.isEmpty()) {
@@ -159,6 +229,68 @@ fun TimelineScreen(
                 showDialog = false
             },
         )
+    }
+}
+
+@Composable
+private fun TimelineSectionTitle(title: String) {
+    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+}
+
+@Composable
+private fun StageReportCard(report: StageReportEntry) {
+    ElevatedCard {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(report.report.title, fontWeight = FontWeight.SemiBold)
+            report.report.summary.forEach { line ->
+                Text(line, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun YearlySummaryCard(
+    feedings: List<FeedingEntity>,
+    sleeps: List<SleepEntity>,
+    diapers: List<DiaperEntity>,
+) {
+    val totalNightWakes = sleeps
+        .sortedBy { it.startTime }
+        .zipWithNext()
+        .count { (previous, next) -> Duration.between(previous.endTime, next.startTime).toMinutes() > 10 }
+    val busiestDay = feedings
+        .groupingBy { it.happenedAt.toLocalDate() }
+        .eachCount()
+        .maxByOrNull { it.value }
+    ElevatedCard {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("累计喂养 ${feedings.size} 次", fontWeight = FontWeight.SemiBold)
+            Text(
+                "累计母乳时长 ${feedings.sumOf { it.durationMinutes ?: 0 }} 分钟，换尿布 ${diapers.size} 次。",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "累计夜间醒来约 $totalNightWakes 次。",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            busiestDay?.let {
+                Text(
+                    "记录最密集的一天：${it.key.formatDate()}（${it.value} 次喂养）",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 

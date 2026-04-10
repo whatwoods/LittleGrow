@@ -1,14 +1,9 @@
 package com.littlegrow.app.ui.screens
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,12 +13,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -37,42 +30,34 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.littlegrow.app.BreastfeedingTimerState
 import com.littlegrow.app.RecordQuickAction
 import com.littlegrow.app.data.ActivityDraft
 import com.littlegrow.app.data.ActivityEntity
-import com.littlegrow.app.data.ActivityType
+import com.littlegrow.app.data.AllergyStatus
 import com.littlegrow.app.data.DiaperDraft
 import com.littlegrow.app.data.DiaperEntity
-import com.littlegrow.app.data.DiaperType
 import com.littlegrow.app.data.FeedingDraft
 import com.littlegrow.app.data.FeedingEntity
+import com.littlegrow.app.data.FeedingFormDefaults
 import com.littlegrow.app.data.FeedingType
 import com.littlegrow.app.data.MedicalDraft
 import com.littlegrow.app.data.MedicalEntity
-import com.littlegrow.app.data.MedicalRecordType
 import com.littlegrow.app.data.PoopColor
-import com.littlegrow.app.data.PoopTexture
 import com.littlegrow.app.data.RecordTab
 import com.littlegrow.app.data.SleepDraft
 import com.littlegrow.app.data.SleepEntity
-import com.littlegrow.app.media.PendingPhotoCapture
-import com.littlegrow.app.media.PhotoStore
-import com.littlegrow.app.ui.PhotoActionRow
 import com.littlegrow.app.ui.PhotoPreviewCard
-import com.littlegrow.app.ui.dateTimeFormatter
+import com.littlegrow.app.ui.formatDate
 import com.littlegrow.app.ui.formatDateTime
-import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlinx.coroutines.delay
@@ -80,13 +65,18 @@ import kotlinx.coroutines.delay
 @Composable
 fun RecordsScreen(
     selectedTab: RecordTab,
+    orderedTabs: List<RecordTab>,
     feedings: List<FeedingEntity>,
     sleeps: List<SleepEntity>,
     diapers: List<DiaperEntity>,
     medicalRecords: List<MedicalEntity>,
     activityRecords: List<ActivityEntity>,
+    caregivers: List<String>,
+    currentCaregiver: String,
+    nightWakeCount: Int,
     breastfeedingTimer: BreastfeedingTimerState,
     pendingQuickAction: RecordQuickAction?,
+    feedingFormDefaults: FeedingFormDefaults,
     contentPadding: PaddingValues,
     onSelectTab: (RecordTab) -> Unit,
     onConsumeQuickAction: () -> Unit,
@@ -108,6 +98,8 @@ fun RecordsScreen(
     onAddActivity: (ActivityDraft) -> Unit,
     onUpdateActivity: (Long, ActivityDraft) -> Unit,
     onDeleteActivity: (Long) -> Unit,
+    onOpenBatchRecord: (RecordTab) -> Unit,
+    onOpenHandoverSummary: () -> Unit,
 ) {
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var showTimerStarter by rememberSaveable { mutableStateOf(false) }
@@ -123,24 +115,20 @@ fun RecordsScreen(
                 showAddDialog = true
                 onConsumeQuickAction()
             }
-
             RecordQuickAction.TIMER -> {
                 if (selectedTab == RecordTab.FEEDING) {
                     showTimerStarter = true
                     onConsumeQuickAction()
                 }
             }
-
             null -> Unit
         }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier.padding(top = contentPadding.calculateTopPadding()),
-        ) {
-            PrimaryTabRow(selectedTabIndex = selectedTab.ordinal) {
-                RecordTab.entries.forEach { tab ->
+        Column(modifier = Modifier.padding(top = contentPadding.calculateTopPadding())) {
+            PrimaryTabRow(selectedTabIndex = orderedTabs.indexOf(selectedTab).coerceAtLeast(0)) {
+                orderedTabs.forEach { tab ->
                     Tab(
                         selected = selectedTab == tab,
                         onClick = { onSelectTab(tab) },
@@ -148,170 +136,106 @@ fun RecordsScreen(
                     )
                 }
             }
-
             when (selectedTab) {
                 RecordTab.FEEDING -> FeedingsTab(
                     items = feedings,
                     timerState = breastfeedingTimer,
+                    feedingFormDefaults = feedingFormDefaults,
                     contentPadding = contentPadding,
                     onStartTimer = onStartBreastfeedingTimer,
                     onCancelTimer = onCancelBreastfeedingTimer,
                     onSaveTimer = onSaveBreastfeedingTimer,
-                    onEdit = {
-                        editingFeeding = it
-                        showAddDialog = true
-                    },
+                    onEdit = { editingFeeding = it; showAddDialog = true },
                     onDelete = onDeleteFeeding,
+                    onOpenBatchRecord = { onOpenBatchRecord(RecordTab.FEEDING) },
+                    onOpenHandoverSummary = onOpenHandoverSummary,
                 )
-
                 RecordTab.SLEEP -> SleepTab(
                     items = sleeps,
+                    nightWakeCount = nightWakeCount,
                     contentPadding = contentPadding,
-                    onEdit = {
-                        editingSleep = it
-                        showAddDialog = true
-                    },
+                    onEdit = { editingSleep = it; showAddDialog = true },
                     onDelete = onDeleteSleep,
+                    onOpenBatchRecord = { onOpenBatchRecord(RecordTab.SLEEP) },
+                    onOpenHandoverSummary = onOpenHandoverSummary,
                 )
-
                 RecordTab.DIAPER -> DiaperTab(
                     items = diapers,
                     contentPadding = contentPadding,
-                    onEdit = {
-                        editingDiaper = it
-                        showAddDialog = true
-                    },
+                    onEdit = { editingDiaper = it; showAddDialog = true },
                     onDelete = onDeleteDiaper,
+                    onOpenBatchRecord = { onOpenBatchRecord(RecordTab.DIAPER) },
+                    onOpenHandoverSummary = onOpenHandoverSummary,
                 )
-
                 RecordTab.MEDICAL -> MedicalTab(
                     items = medicalRecords,
                     contentPadding = contentPadding,
-                    onEdit = {
-                        editingMedical = it
-                        showAddDialog = true
-                    },
+                    onEdit = { editingMedical = it; showAddDialog = true },
                     onDelete = onDeleteMedical,
+                    onOpenBatchRecord = { onOpenBatchRecord(RecordTab.MEDICAL) },
+                    onOpenHandoverSummary = onOpenHandoverSummary,
                 )
-
                 RecordTab.ACTIVITY -> ActivityTab(
                     items = activityRecords,
                     contentPadding = contentPadding,
-                    onEdit = {
-                        editingActivity = it
-                        showAddDialog = true
-                    },
+                    onEdit = { editingActivity = it; showAddDialog = true },
                     onDelete = onDeleteActivity,
+                    onOpenBatchRecord = { onOpenBatchRecord(RecordTab.ACTIVITY) },
+                    onOpenHandoverSummary = onOpenHandoverSummary,
                 )
             }
         }
-
     }
 
     if (showTimerStarter) {
         AlertDialog(
             onDismissRequest = { showTimerStarter = false },
             title = { Text("开始母乳计时") },
-            text = { Text("选择本次先喂哪一侧。开始后可在喂养页顶部随时结束并保存。") },
+            text = { Text("选择本次先喂哪一侧。") },
             confirmButton = {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(
-                        onClick = {
-                            onStartBreastfeedingTimer(FeedingType.BREAST_LEFT)
-                            showTimerStarter = false
-                        },
-                    ) {
-                        Text("左侧开始")
-                    }
-                    TextButton(
-                        onClick = {
-                            onStartBreastfeedingTimer(FeedingType.BREAST_RIGHT)
-                            showTimerStarter = false
-                        },
-                    ) {
-                        Text("右侧开始")
-                    }
+                    TextButton(onClick = { onStartBreastfeedingTimer(FeedingType.BREAST_LEFT); showTimerStarter = false }) { Text("左侧开始") }
+                    TextButton(onClick = { onStartBreastfeedingTimer(FeedingType.BREAST_RIGHT); showTimerStarter = false }) { Text("右侧开始") }
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showTimerStarter = false }) {
-                    Text("取消")
-                }
+                TextButton(onClick = { showTimerStarter = false }) { Text("取消") }
             },
         )
     }
 
     if (showAddDialog) {
         when (selectedTab) {
-            RecordTab.FEEDING -> AddFeedingDialog(
-                initial = editingFeeding,
-                onDismiss = {
-                    editingFeeding = null
-                    showAddDialog = false
-                },
-                onSubmit = { draft ->
-                    val editing = editingFeeding
-                    if (editing == null) onAddFeeding(draft) else onUpdateFeeding(editing.id, draft)
-                    editingFeeding = null
-                    showAddDialog = false
-                },
-            )
-
-            RecordTab.SLEEP -> AddSleepDialog(
-                initial = editingSleep,
-                onDismiss = {
-                    editingSleep = null
-                    showAddDialog = false
-                },
-                onSubmit = { draft ->
-                    val editing = editingSleep
-                    if (editing == null) onAddSleep(draft) else onUpdateSleep(editing.id, draft)
-                    editingSleep = null
-                    showAddDialog = false
-                },
-            )
-
-            RecordTab.DIAPER -> AddDiaperDialog(
-                initial = editingDiaper,
-                onDismiss = {
-                    editingDiaper = null
-                    showAddDialog = false
-                },
-                onSubmit = { draft ->
-                    val editing = editingDiaper
-                    if (editing == null) onAddDiaper(draft) else onUpdateDiaper(editing.id, draft)
-                    editingDiaper = null
-                    showAddDialog = false
-                },
-            )
-
-            RecordTab.MEDICAL -> AddMedicalDialog(
-                initial = editingMedical,
-                onDismiss = {
-                    editingMedical = null
-                    showAddDialog = false
-                },
-                onSubmit = { draft ->
-                    val editing = editingMedical
-                    if (editing == null) onAddMedical(draft) else onUpdateMedical(editing.id, draft)
-                    editingMedical = null
-                    showAddDialog = false
-                },
-            )
-
-            RecordTab.ACTIVITY -> AddActivityDialog(
-                initial = editingActivity,
-                onDismiss = {
-                    editingActivity = null
-                    showAddDialog = false
-                },
-                onSubmit = { draft ->
-                    val editing = editingActivity
-                    if (editing == null) onAddActivity(draft) else onUpdateActivity(editing.id, draft)
-                    editingActivity = null
-                    showAddDialog = false
-                },
-            )
+            RecordTab.FEEDING -> AddFeedingDialog(editingFeeding, caregivers, currentCaregiver, { editingFeeding = null; showAddDialog = false }, { draft ->
+                val editing = editingFeeding
+                if (editing == null) onAddFeeding(draft) else onUpdateFeeding(editing.id, draft)
+                editingFeeding = null
+                showAddDialog = false
+            }, feedingFormDefaults)
+            RecordTab.SLEEP -> AddSleepDialog(editingSleep, caregivers, currentCaregiver, { editingSleep = null; showAddDialog = false }, { draft ->
+                val editing = editingSleep
+                if (editing == null) onAddSleep(draft) else onUpdateSleep(editing.id, draft)
+                editingSleep = null
+                showAddDialog = false
+            })
+            RecordTab.DIAPER -> AddDiaperDialog(editingDiaper, caregivers, currentCaregiver, { editingDiaper = null; showAddDialog = false }, { draft ->
+                val editing = editingDiaper
+                if (editing == null) onAddDiaper(draft) else onUpdateDiaper(editing.id, draft)
+                editingDiaper = null
+                showAddDialog = false
+            })
+            RecordTab.MEDICAL -> AddMedicalDialog(editingMedical, caregivers, currentCaregiver, { editingMedical = null; showAddDialog = false }, { draft ->
+                val editing = editingMedical
+                if (editing == null) onAddMedical(draft) else onUpdateMedical(editing.id, draft)
+                editingMedical = null
+                showAddDialog = false
+            })
+            RecordTab.ACTIVITY -> AddActivityDialog(editingActivity, caregivers, currentCaregiver, { editingActivity = null; showAddDialog = false }, { draft ->
+                val editing = editingActivity
+                if (editing == null) onAddActivity(draft) else onUpdateActivity(editing.id, draft)
+                editingActivity = null
+                showAddDialog = false
+            })
         }
     }
 }
@@ -320,27 +244,28 @@ fun RecordsScreen(
 private fun FeedingsTab(
     items: List<FeedingEntity>,
     timerState: BreastfeedingTimerState,
+    feedingFormDefaults: FeedingFormDefaults,
     contentPadding: PaddingValues,
     onStartTimer: (FeedingType) -> Unit,
     onCancelTimer: () -> Unit,
     onSaveTimer: () -> Unit,
     onEdit: (FeedingEntity) -> Unit,
     onDelete: (Long) -> Unit,
+    onOpenBatchRecord: () -> Unit,
+    onOpenHandoverSummary: () -> Unit,
 ) {
     RecordTabList(
         contentPadding = contentPadding,
         isEmpty = items.isEmpty(),
         emptyText = "还没有喂养记录。",
         headerContent = {
-            item {
-                HeroCard(
-                    title = "喂养记录",
-                    summary = "支持母乳、瓶喂和辅食。母乳可直接用计时器落记录，辅食可附一张照片。",
-                )
-            }
+            item { HeroCard("喂养记录", "支持母乳、瓶喂和辅食。顶部会展示奶量趋势和母乳计时器。") }
+            item { RecordActionRow(onOpenBatchRecord, onOpenHandoverSummary) }
+            item { BottleAmountTrendCard(items) }
             item {
                 BreastfeedingTimerCard(
                     timerState = timerState,
+                    feedingFormDefaults = feedingFormDefaults,
                     onStartTimer = onStartTimer,
                     onCancelTimer = onCancelTimer,
                     onSaveTimer = onSaveTimer,
@@ -357,18 +282,23 @@ private fun FeedingsTab(
                             feeding.durationMinutes?.let { add("${it} 分钟") }
                             feeding.amountMl?.let { add("${it} ml") }
                             feeding.foodName?.let { add(it) }
+                            feeding.caregiver?.let { add("记录人 $it") }
                             feeding.note?.let { add(it) }
                         }
-                        if (detail.isNotEmpty()) {
-                            Text(detail.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (detail.isNotEmpty()) Text(detail.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (feeding.allergyObservation != AllergyStatus.NONE) {
+                            Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.small) {
+                                Text(
+                                    text = buildString {
+                                        append("辅食观察：${feeding.allergyObservation.label}")
+                                        feeding.observationEndDate?.let { append("，到 ${it.formatDate()}") }
+                                    },
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                )
+                            }
                         }
-                        feeding.photoPath?.let {
-                            PhotoPreviewCard(filePath = it, contentDescription = "辅食照片")
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                        ) {
+                        feeding.photoPath?.let { PhotoPreviewCard(filePath = it, contentDescription = "辅食照片") }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                             TextButton(onClick = { onEdit(feeding) }) { Text("编辑") }
                             TextButton(onClick = { onDelete(feeding.id) }) { Text("删除") }
                         }
@@ -380,16 +310,45 @@ private fun FeedingsTab(
 }
 
 @Composable
+private fun BottleAmountTrendCard(items: List<FeedingEntity>) {
+    var rangeDays by rememberSaveable { mutableStateOf(7) }
+    val today = LocalDate.now()
+    val values = remember(items, rangeDays) {
+        (0 until rangeDays).map { offset ->
+            val day = today.minusDays((rangeDays - 1 - offset).toLong())
+            items.filter {
+                it.happenedAt.toLocalDate() == day &&
+                    it.type in listOf(FeedingType.BOTTLE_BREAST_MILK, FeedingType.BOTTLE_FORMULA)
+            }.sumOf { it.amountMl ?: 0 }.toFloat()
+        }
+    }
+    ElevatedCard {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("奶量趋势", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(7, 14, 30).forEach { days ->
+                    OutlinedButton(onClick = { rangeDays = days }) { Text("最近 $days 天") }
+                }
+            }
+            if (values.count { it > 0f } < 2) {
+                Text("至少记录两天瓶喂奶量，才会在这里画出趋势。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                SimpleValueChart(values, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary)
+                Text("最近一日累计 ${values.last().toInt()} ml", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
 private fun BreastfeedingTimerCard(
     timerState: BreastfeedingTimerState,
+    feedingFormDefaults: FeedingFormDefaults,
     onStartTimer: (FeedingType) -> Unit,
     onCancelTimer: () -> Unit,
     onSaveTimer: () -> Unit,
 ) {
-    var nowMs by remember(timerState.startedAtEpochMillis) {
-        mutableLongStateOf(System.currentTimeMillis())
-    }
-
+    var nowMs by remember(timerState.startedAtEpochMillis) { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(timerState.startedAtEpochMillis) {
         if (!timerState.isRunning) return@LaunchedEffect
         while (true) {
@@ -397,38 +356,24 @@ private fun BreastfeedingTimerCard(
             delay(1_000)
         }
     }
-
     ElevatedCard {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("母乳计时器", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             if (!timerState.isRunning) {
-                Text("喂奶时直接开始计时，结束后自动生成母乳记录。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    TimerActionButton("左侧开始", Modifier.weight(1f)) { onStartTimer(FeedingType.BREAST_LEFT) }
-                    TimerActionButton("右侧开始", Modifier.weight(1f)) { onStartTimer(FeedingType.BREAST_RIGHT) }
+                feedingFormDefaults.breastSideHint?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+                val preferredSide = if (feedingFormDefaults.defaultType == FeedingType.BREAST_RIGHT) FeedingType.BREAST_RIGHT else FeedingType.BREAST_LEFT
+                val secondarySide = if (preferredSide == FeedingType.BREAST_LEFT) FeedingType.BREAST_RIGHT else FeedingType.BREAST_LEFT
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TimerActionButton("${preferredSide.label.removePrefix("母乳")}开始", Modifier.weight(1f)) { onStartTimer(preferredSide) }
+                    TimerActionButton("${secondarySide.label.removePrefix("母乳")}开始", Modifier.weight(1f)) { onStartTimer(secondarySide) }
                 }
             } else {
                 val startedAt = timerState.startedAtEpochMillis ?: 0L
                 val elapsedSeconds = ((nowMs - startedAt) / 1_000L).coerceAtLeast(0L)
                 val startedText = LocalDateTime.ofInstant(Instant.ofEpochMilli(startedAt), ZoneId.systemDefault()).formatDateTime()
-                Text(
-                    "${timerState.activeType?.label} · ${elapsedSeconds.formatStopwatch()}",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                )
+                Text("${timerState.activeType?.label} · ${elapsedSeconds.formatStopwatch()}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text("开始于 $startedText", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TimerActionButton("结束并保存", Modifier.weight(1f), onSaveTimer)
                     TimerActionButton("取消", Modifier.weight(1f), onCancelTimer)
                 }
@@ -438,52 +383,48 @@ private fun BreastfeedingTimerCard(
 }
 
 @Composable
-private fun TimerActionButton(
-    label: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    OutlinedButton(modifier = modifier, onClick = onClick) {
-        Text(label)
-    }
-}
-
-@Composable
 private fun SleepTab(
     items: List<SleepEntity>,
+    nightWakeCount: Int,
     contentPadding: PaddingValues,
     onEdit: (SleepEntity) -> Unit,
     onDelete: (Long) -> Unit,
+    onOpenBatchRecord: () -> Unit,
+    onOpenHandoverSummary: () -> Unit,
 ) {
     RecordTabList(
         contentPadding = contentPadding,
         isEmpty = items.isEmpty(),
         emptyText = "还没有睡眠记录。",
         headerContent = {
+            item { HeroCard("睡眠记录", "自动区分小睡和夜间睡眠，并统计昨晚夜醒次数。") }
+            item { RecordActionRow(onOpenBatchRecord, onOpenHandoverSummary) }
             item {
-                HeroCard(
-                    title = "睡眠记录",
-                    summary = "用开始与结束时间记录作息，首页会自动汇总今日总睡眠时长。",
-                )
+                ElevatedCard {
+                    Text(
+                        text = "昨晚夜醒 $nightWakeCount 次",
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
         },
         itemContent = {
             items(items, key = { it.id }) { sleep ->
                 ElevatedCard {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("睡眠", fontWeight = FontWeight.SemiBold)
+                        Text("${sleep.sleepType.label} · ${sleep.fallingAsleepMethod?.label ?: "未记录入睡方式"}", fontWeight = FontWeight.SemiBold)
                         Text("${sleep.startTime.formatDateTime()} - ${sleep.endTime.formatDateTime()}")
                         Text(
-                            "时长 ${Duration.between(sleep.startTime, sleep.endTime).toMinutes()} 分钟",
+                            listOfNotNull(
+                                "时长 ${java.time.Duration.between(sleep.startTime, sleep.endTime).toMinutes()} 分钟",
+                                sleep.caregiver?.let { "记录人 $it" },
+                                sleep.note,
+                            ).joinToString(" · "),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        sleep.note?.let {
-                            Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                        ) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                             TextButton(onClick = { onEdit(sleep) }) { Text("编辑") }
                             TextButton(onClick = { onDelete(sleep.id) }) { Text("删除") }
                         }
@@ -500,18 +441,16 @@ private fun DiaperTab(
     contentPadding: PaddingValues,
     onEdit: (DiaperEntity) -> Unit,
     onDelete: (Long) -> Unit,
+    onOpenBatchRecord: () -> Unit,
+    onOpenHandoverSummary: () -> Unit,
 ) {
     RecordTabList(
         contentPadding = contentPadding,
         isEmpty = items.isEmpty(),
         emptyText = "还没有排泄记录。",
         headerContent = {
-            item {
-                HeroCard(
-                    title = "排泄记录",
-                    summary = "大便可以补充颜色和性状，红色和白色会在列表中直接高亮。",
-                )
-            }
+            item { HeroCard("排泄记录", "大便记录可附照片，红色和白色会直接高亮。") }
+            item { RecordActionRow(onOpenBatchRecord, onOpenHandoverSummary) }
         },
         itemContent = {
             items(items, key = { it.id }) { diaper ->
@@ -522,22 +461,15 @@ private fun DiaperTab(
                         val detail = buildList {
                             diaper.poopColor?.let { add(it.label) }
                             diaper.poopTexture?.let { add(it.label) }
+                            diaper.caregiver?.let { add("记录人 $it") }
                             diaper.note?.let { add(it) }
                         }
-                        if (detail.isNotEmpty()) {
-                            Text(detail.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                        if (detail.isNotEmpty()) Text(detail.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        diaper.photoPath?.let { PhotoPreviewCard(filePath = it, contentDescription = "大便照片") }
                         if (diaper.poopColor == PoopColor.RED || diaper.poopColor == PoopColor.WHITE) {
-                            Text(
-                                "异常颜色提醒：建议结合宝宝状态尽快观察或咨询医生。",
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
+                            Text("异常颜色提醒：建议结合宝宝状态尽快观察或咨询医生。", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                        ) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                             TextButton(onClick = { onEdit(diaper) }) { Text("编辑") }
                             TextButton(onClick = { onDelete(diaper.id) }) { Text("删除") }
                         }
@@ -554,21 +486,17 @@ private fun MedicalTab(
     contentPadding: PaddingValues,
     onEdit: (MedicalEntity) -> Unit,
     onDelete: (Long) -> Unit,
+    onOpenBatchRecord: () -> Unit,
+    onOpenHandoverSummary: () -> Unit,
 ) {
     RecordTabList(
         contentPadding = contentPadding,
         isEmpty = items.isEmpty(),
         emptyText = "还没有健康记录。",
         headerContent = {
-            item {
-                HeroCard(
-                    title = "健康记录",
-                    summary = "把发热、用药和过敏史记成一条时间线；体温数据会自动画成小曲线。",
-                )
-            }
-            item {
-                TemperatureTrendCard(records = items)
-            }
+            item { HeroCard("健康记录", "把发热、用药和过敏史记成时间线；体温数据会自动画成小曲线。") }
+            item { RecordActionRow(onOpenBatchRecord, onOpenHandoverSummary) }
+            item { TemperatureTrendCard(records = items) }
         },
         itemContent = {
             items(items, key = { it.id }) { medical ->
@@ -579,22 +507,14 @@ private fun MedicalTab(
                         val detail = buildList {
                             medical.temperatureC?.let { add(String.format("%.1f ℃", it)) }
                             medical.dosage?.let { add("剂量 $it") }
+                            medical.caregiver?.let { add("记录人 $it") }
                             medical.note?.let { add(it) }
                         }
-                        if (detail.isNotEmpty()) {
-                            Text(detail.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                        if (detail.isNotEmpty()) Text(detail.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if ((medical.temperatureC ?: 0f) >= 38.0f) {
-                            Text(
-                                "体温偏高，请结合精神状态和持续时间继续观察。",
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
+                            Text("体温偏高，请结合精神状态和持续时间继续观察。", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                        ) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                             TextButton(onClick = { onEdit(medical) }) { Text("编辑") }
                             TextButton(onClick = { onDelete(medical.id) }) { Text("删除") }
                         }
@@ -607,33 +527,15 @@ private fun MedicalTab(
 
 @Composable
 private fun TemperatureTrendCard(records: List<MedicalEntity>) {
-    val points = remember(records) {
-        records
-            .filter { it.temperatureC != null }
-            .sortedBy { it.happenedAt }
-            .map { it.happenedAt to (it.temperatureC ?: 0f) }
-    }
-
+    val points = remember(records) { records.filter { it.temperatureC != null }.sortedBy { it.happenedAt }.map { it.happenedAt to (it.temperatureC ?: 0f) } }
     ElevatedCard {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("体温曲线", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             if (points.size < 2) {
                 Text("至少记录两次体温，才会在这里画出趋势。", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                SimpleValueChart(
-                    values = points.map { it.second },
-                    lineColor = MaterialTheme.colorScheme.error,
-                    pointColor = MaterialTheme.colorScheme.tertiary,
-                )
-                Text(
-                    "最新 ${String.format("%.1f ℃", points.last().second)} · ${points.last().first.formatDateTime()}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                SimpleValueChart(points.map { it.second }, MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.tertiary)
+                Text("最新 ${String.format("%.1f ℃", points.last().second)} · ${points.last().first.formatDateTime()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -645,18 +547,16 @@ private fun ActivityTab(
     contentPadding: PaddingValues,
     onEdit: (ActivityEntity) -> Unit,
     onDelete: (Long) -> Unit,
+    onOpenBatchRecord: () -> Unit,
+    onOpenHandoverSummary: () -> Unit,
 ) {
     RecordTabList(
         contentPadding = contentPadding,
         isEmpty = items.isEmpty(),
         emptyText = "还没有活动记录。",
         headerContent = {
-            item {
-                HeroCard(
-                    title = "活动记录",
-                    summary = "把洗澡、户外、趴玩和早教补进去，照护节奏会更完整。",
-                )
-            }
+            item { HeroCard("活动记录", "把洗澡、户外、趴玩和早教补进去，照护节奏会更完整。") }
+            item { RecordActionRow(onOpenBatchRecord, onOpenHandoverSummary) }
         },
         itemContent = {
             items(items, key = { it.id }) { activity ->
@@ -666,15 +566,11 @@ private fun ActivityTab(
                         Text(activity.happenedAt.formatDateTime())
                         val detail = buildList {
                             activity.durationMinutes?.let { add("${it} 分钟") }
+                            activity.caregiver?.let { add("记录人 $it") }
                             activity.note?.let { add(it) }
                         }
-                        if (detail.isNotEmpty()) {
-                            Text(detail.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                        ) {
+                        if (detail.isNotEmpty()) Text(detail.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                             TextButton(onClick = { onEdit(activity) }) { Text("编辑") }
                             TextButton(onClick = { onDelete(activity.id) }) { Text("删除") }
                         }
@@ -686,12 +582,7 @@ private fun ActivityTab(
 }
 
 private fun recordTabContentPadding(contentPadding: PaddingValues): PaddingValues {
-    return PaddingValues(
-        start = 16.dp,
-        end = 16.dp,
-        top = 16.dp,
-        bottom = contentPadding.calculateBottomPadding() + 96.dp,
-    )
+    return PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = contentPadding.calculateBottomPadding() + 96.dp)
 }
 
 @Composable
@@ -702,31 +593,16 @@ private fun RecordTabList(
     headerContent: LazyListScope.() -> Unit,
     itemContent: LazyListScope.() -> Unit,
 ) {
-    LazyColumn(
-        contentPadding = recordTabContentPadding(contentPadding),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
+    LazyColumn(contentPadding = recordTabContentPadding(contentPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         headerContent()
-        if (isEmpty) {
-            item { EmptyRecordCard(emptyText) }
-        } else {
-            itemContent()
-        }
+        if (isEmpty) item { EmptyRecordCard(emptyText) } else itemContent()
     }
 }
 
 @Composable
-private fun HeroCard(
-    title: String,
-    summary: String,
-) {
+private fun HeroCard(title: String, summary: String) {
     ElevatedCard {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text(summary, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -734,29 +610,22 @@ private fun HeroCard(
 }
 
 @Composable
-fun EmptyRecordCard(
-    text: String,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        tonalElevation = 2.dp,
-        shape = MaterialTheme.shapes.large,
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(16.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+private fun RecordActionRow(onOpenBatchRecord: () -> Unit, onOpenHandoverSummary: () -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(modifier = Modifier.weight(1f), onClick = onOpenBatchRecord) { Text("批量补录") }
+        OutlinedButton(modifier = Modifier.weight(1f), onClick = onOpenHandoverSummary) { Text("交接摘要") }
     }
 }
 
 @Composable
-private fun FormDialog(
-    title: String,
-    onDismiss: () -> Unit,
-    content: @Composable () -> Unit,
-) {
+fun EmptyRecordCard(text: String, modifier: Modifier = Modifier) {
+    Surface(modifier = modifier, tonalElevation = 2.dp, shape = MaterialTheme.shapes.large) {
+        Text(text = text, modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun FormDialog(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -769,17 +638,22 @@ private fun FormDialog(
 @Composable
 private fun AddFeedingDialog(
     initial: FeedingEntity?,
+    caregivers: List<String>,
+    currentCaregiver: String,
     onDismiss: () -> Unit,
     onSubmit: (FeedingDraft) -> Unit,
+    defaults: FeedingFormDefaults,
 ) {
     var dismissForm by remember { mutableStateOf<() -> Unit>({ onDismiss() }) }
-
     FormDialog(
         title = if (initial == null) "添加喂养记录" else "编辑喂养记录",
         onDismiss = { dismissForm() },
     ) {
         AddFeedingForm(
             initial = initial,
+            defaults = defaults,
+            caregivers = caregivers,
+            currentCaregiver = currentCaregiver,
             onSubmit = onSubmit,
             onCancel = onDismiss,
             bindDiscard = { discardDraft -> dismissForm = { discardDraft(); onDismiss() } },
@@ -790,6 +664,8 @@ private fun AddFeedingDialog(
 @Composable
 private fun AddSleepDialog(
     initial: SleepEntity?,
+    caregivers: List<String>,
+    currentCaregiver: String,
     onDismiss: () -> Unit,
     onSubmit: (SleepDraft) -> Unit,
 ) {
@@ -797,27 +673,45 @@ private fun AddSleepDialog(
         title = if (initial == null) "添加睡眠记录" else "编辑睡眠记录",
         onDismiss = onDismiss,
     ) {
-        AddSleepForm(initial = initial, onSubmit = onSubmit, onCancel = onDismiss)
+        AddSleepForm(
+            initial = initial,
+            caregivers = caregivers,
+            currentCaregiver = currentCaregiver,
+            onSubmit = onSubmit,
+            onCancel = onDismiss,
+        )
     }
 }
 
 @Composable
 private fun AddDiaperDialog(
     initial: DiaperEntity?,
+    caregivers: List<String>,
+    currentCaregiver: String,
     onDismiss: () -> Unit,
     onSubmit: (DiaperDraft) -> Unit,
 ) {
+    var dismissForm by remember { mutableStateOf<() -> Unit>({ onDismiss() }) }
     FormDialog(
         title = if (initial == null) "添加排泄记录" else "编辑排泄记录",
-        onDismiss = onDismiss,
+        onDismiss = { dismissForm() },
     ) {
-        AddDiaperForm(initial = initial, onSubmit = onSubmit, onCancel = onDismiss)
+        AddDiaperForm(
+            initial = initial,
+            caregivers = caregivers,
+            currentCaregiver = currentCaregiver,
+            onSubmit = onSubmit,
+            onCancel = onDismiss,
+            bindDiscard = { discardDraft -> dismissForm = { discardDraft(); onDismiss() } },
+        )
     }
 }
 
 @Composable
 private fun AddMedicalDialog(
     initial: MedicalEntity?,
+    caregivers: List<String>,
+    currentCaregiver: String,
     onDismiss: () -> Unit,
     onSubmit: (MedicalDraft) -> Unit,
 ) {
@@ -825,13 +719,21 @@ private fun AddMedicalDialog(
         title = if (initial == null) "添加健康记录" else "编辑健康记录",
         onDismiss = onDismiss,
     ) {
-        AddMedicalForm(initial = initial, onSubmit = onSubmit, onCancel = onDismiss)
+        AddMedicalForm(
+            initial = initial,
+            caregivers = caregivers,
+            currentCaregiver = currentCaregiver,
+            onSubmit = onSubmit,
+            onCancel = onDismiss,
+        )
     }
 }
 
 @Composable
 private fun AddActivityDialog(
     initial: ActivityEntity?,
+    caregivers: List<String>,
+    currentCaregiver: String,
     onDismiss: () -> Unit,
     onSubmit: (ActivityDraft) -> Unit,
 ) {
@@ -839,21 +741,26 @@ private fun AddActivityDialog(
         title = if (initial == null) "添加活动记录" else "编辑活动记录",
         onDismiss = onDismiss,
     ) {
-        AddActivityForm(initial = initial, onSubmit = onSubmit, onCancel = onDismiss)
+        AddActivityForm(
+            initial = initial,
+            caregivers = caregivers,
+            currentCaregiver = currentCaregiver,
+            onSubmit = onSubmit,
+            onCancel = onDismiss,
+        )
     }
 }
 
 @Composable
-private fun SimpleValueChart(
-    values: List<Float>,
-    lineColor: Color,
-    pointColor: Color,
-) {
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(180.dp),
-    ) {
+private fun TimerActionButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    OutlinedButton(modifier = modifier, onClick = onClick) {
+        Text(label)
+    }
+}
+
+@Composable
+private fun SimpleValueChart(values: List<Float>, lineColor: Color, pointColor: Color) {
+    Canvas(modifier = Modifier.fillMaxWidth().height(180.dp)) {
         val minY = values.minOrNull() ?: 0f
         val maxY = values.maxOrNull() ?: 1f
         val spread = (maxY - minY).takeIf { it > 0f } ?: 1f
@@ -862,11 +769,7 @@ private fun SimpleValueChart(
         val horizontalPadding = 24f
         val verticalPadding = 20f
         val points = values.mapIndexed { index, value ->
-            val x = if (values.size == 1) {
-                width / 2f
-            } else {
-                horizontalPadding + index * ((width - horizontalPadding * 2) / values.lastIndex.coerceAtLeast(1))
-            }
+            val x = if (values.size == 1) width / 2f else horizontalPadding + index * ((width - horizontalPadding * 2) / values.lastIndex.coerceAtLeast(1))
             val normalized = (value - minY) / spread
             val y = height - verticalPadding - normalized * (height - verticalPadding * 2)
             Offset(x, y)
@@ -876,11 +779,7 @@ private fun SimpleValueChart(
                 if (index == 0) moveTo(point.x, point.y) else lineTo(point.x, point.y)
             }
         }
-        drawPath(
-            path = path,
-            color = lineColor,
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f),
-        )
+        drawPath(path = path, color = lineColor, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f))
         points.forEach { point ->
             drawCircle(color = pointColor, radius = 8f, center = point)
         }

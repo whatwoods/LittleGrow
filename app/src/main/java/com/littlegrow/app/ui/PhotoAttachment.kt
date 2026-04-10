@@ -130,13 +130,15 @@ fun PhotoPreviewCard(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PhotoActionRow(
+    title: String = "照片",
+    removeLabel: String = "移除照片",
     hasPhoto: Boolean,
     onTakePhoto: () -> Unit,
     onPickPhoto: () -> Unit,
     onRemovePhoto: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("照片", style = MaterialTheme.typography.labelLarge)
+        Text(title, style = MaterialTheme.typography.labelLarge)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -149,7 +151,7 @@ fun PhotoActionRow(
             }
             if (hasPhoto) {
                 TextButton(onClick = onRemovePhoto) {
-                    Text("移除照片")
+                    Text(removeLabel)
                 }
             }
         }

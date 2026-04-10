@@ -21,6 +21,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,10 +43,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.littlegrow.app.data.BabyProfile
+import com.littlegrow.app.data.GrowthVelocityRange
 import com.littlegrow.app.data.GrowthDraft
 import com.littlegrow.app.data.GrowthEntity
 import com.littlegrow.app.data.GrowthMetric
+import com.littlegrow.app.data.ReactionSeverity
 import com.littlegrow.app.data.VaccineEntity
+import com.littlegrow.app.data.VaccineCategory
+import com.littlegrow.app.data.VaccineReactionDraft
 import com.littlegrow.app.data.WhoGrowthStandards
 import com.littlegrow.app.ui.NativeDatePickerField
 import com.littlegrow.app.ui.dateFormatter
@@ -53,6 +58,7 @@ import com.littlegrow.app.ui.formatDate
 import com.littlegrow.app.ui.formatMetric
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+import kotlin.math.pow
 
 @Composable
 fun GrowthScreen(
@@ -64,10 +70,13 @@ fun GrowthScreen(
     onUpdateGrowth: (Long, GrowthDraft) -> Unit,
     onDeleteGrowth: (Long) -> Unit,
     onToggleVaccineDone: (String, Boolean) -> Unit,
+    onUpdateVaccineReaction: (String, VaccineReactionDraft) -> Unit,
 ) {
     var metric by rememberSaveable { mutableStateOf(GrowthMetric.WEIGHT) }
     var showDialog by rememberSaveable { mutableStateOf(false) }
+    var showRecommendedVaccines by rememberSaveable { mutableStateOf(false) }
     var editingGrowth by remember { mutableStateOf<GrowthEntity?>(null) }
+    var editingVaccine by remember { mutableStateOf<VaccineEntity?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -134,8 +143,16 @@ fun GrowthScreen(
                             Text(
                                 "体重 ${growth.weightKg.formatMetric(GrowthMetric.WEIGHT)} · " +
                                     "身高 ${growth.heightCm.formatMetric(GrowthMetric.HEIGHT)} · " +
-                                    "头围 ${growth.headCircCm.formatMetric(GrowthMetric.HEAD)}",
+                                    "头围 ${growth.headCircCm.formatMetric(GrowthMetric.HEAD)}" +
+                                    growth.bmiValue()?.let { " · BMI ${String.format("%.1f", it)}" }.orEmpty(),
                             )
+                            growthVelocityText(profile, growthRecords, growth)?.let { velocityText ->
+                                Text(
+                                    velocityText,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.End,
@@ -162,11 +179,29 @@ fun GrowthScreen(
             }
 
             if (vaccines.isNotEmpty()) {
-                items(vaccines, key = { it.scheduleKey }) { vaccine ->
+                item {
+                    VaccineSectionHeader(
+                        showRecommendedVaccines = showRecommendedVaccines,
+                        onToggleRecommended = { showRecommendedVaccines = !showRecommendedVaccines },
+                    )
+                }
+                val nationalVaccines = vaccines.filter { it.category == VaccineCategory.NATIONAL }
+                val recommendedVaccines = vaccines.filter { it.category == VaccineCategory.RECOMMENDED }
+                items(nationalVaccines, key = { it.scheduleKey }) { vaccine ->
                     VaccineCard(
                         vaccine = vaccine,
                         onToggleDone = onToggleVaccineDone,
+                        onEditReaction = { editingVaccine = it },
                     )
+                }
+                if (showRecommendedVaccines) {
+                    items(recommendedVaccines, key = { it.scheduleKey }) { vaccine ->
+                        VaccineCard(
+                            vaccine = vaccine,
+                            onToggleDone = onToggleVaccineDone,
+                            onEditReaction = { editingVaccine = it },
+                        )
+                    }
                 }
             }
         }
@@ -206,6 +241,17 @@ fun GrowthScreen(
             },
         )
     }
+
+    editingVaccine?.let { vaccine ->
+        VaccineReactionDialog(
+            vaccine = vaccine,
+            onDismiss = { editingVaccine = null },
+            onSubmit = { draft ->
+                onUpdateVaccineReaction(vaccine.scheduleKey, draft)
+                editingVaccine = null
+            },
+        )
+    }
 }
 
 @Composable
@@ -233,7 +279,9 @@ private fun VaccineOverviewCard(hasVaccines: Boolean) {
 private fun VaccineCard(
     vaccine: VaccineEntity,
     onToggleDone: (String, Boolean) -> Unit,
+    onEditReaction: (VaccineEntity) -> Unit,
 ) {
+    val overdueDays = ChronoUnit.DAYS.between(vaccine.scheduledDate, LocalDate.now())
     ElevatedCard {
         Column(
             modifier = Modifier
@@ -264,13 +312,73 @@ private fun VaccineCard(
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
             )
+            if (!vaccine.isDone && overdueDays >= 30) {
+                Text(
+                    "建议尽快补种",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            if (vaccine.category == VaccineCategory.RECOMMENDED) {
+                Text(
+                    "推荐自费疫苗",
+                    color = MaterialTheme.colorScheme.tertiary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
             Text(
                 "提醒会在建议日期前 3 天发出。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (vaccine.reactionNote != null || vaccine.hadFever || vaccine.reactionSeverity != null) {
+                Text(
+                    buildString {
+                        append("接种反应")
+                        vaccine.reactionSeverity?.let { append(" · ${it.label}") }
+                        if (vaccine.hadFever) append(" · 发烧")
+                        vaccine.reactionNote?.takeIf { it.isNotBlank() }?.let { append(" · $it") }
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             OutlinedButton(onClick = { onToggleDone(vaccine.scheduleKey, !vaccine.isDone) }) {
                 Text(if (vaccine.isDone) "撤销已接种" else "标记已接种")
+            }
+            TextButton(onClick = { onEditReaction(vaccine) }) {
+                Text("记录接种反应")
+            }
+        }
+    }
+}
+
+@Composable
+private fun VaccineSectionHeader(
+    showRecommendedVaccines: Boolean,
+    onToggleRecommended: () -> Unit,
+) {
+    ElevatedCard {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("推荐自费疫苗", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(
+                "常见如轮状病毒、13 价肺炎、流感、水痘、EV71 等，默认折叠避免干扰主流程。",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(if (showRecommendedVaccines) "已展开" else "默认折叠")
+                Switch(checked = showRecommendedVaccines, onCheckedChange = { onToggleRecommended() })
             }
         }
     }
@@ -298,6 +406,9 @@ private fun GrowthChartCard(
     val latestBand = remember(reference, measurementPoints) {
         val latest = measurementPoints.lastOrNull() ?: return@remember null
         reference?.percentileBand(latest.first, latest.second)
+    }
+    val predictionPoints = remember(measurementPoints, visibleMaxAgeDays) {
+        buildPredictionPoints(measurementPoints, visibleMaxAgeDays)
     }
 
     ElevatedCard {
@@ -334,10 +445,12 @@ private fun GrowthChartCard(
                 val minY = (yCandidates.minOrNull() ?: 0f) - when (metric) {
                     GrowthMetric.WEIGHT -> 0.5f
                     GrowthMetric.HEIGHT, GrowthMetric.HEAD -> 1f
+                    GrowthMetric.BMI -> 0.6f
                 }
                 val maxY = (yCandidates.maxOrNull() ?: 1f) + when (metric) {
                     GrowthMetric.WEIGHT -> 0.5f
                     GrowthMetric.HEIGHT, GrowthMetric.HEAD -> 1f
+                    GrowthMetric.BMI -> 0.6f
                 }
                 Canvas(
                     modifier = Modifier
@@ -408,6 +521,23 @@ private fun GrowthChartCard(
                             drawCircle(color = accentColor, radius = 9f, center = project(point.first, point.second))
                         }
                     }
+                    if (predictionPoints.isNotEmpty()) {
+                        val predictionPath = Path().apply {
+                            predictionPoints.forEachIndexed { index, point ->
+                                val offset = project(point.first, point.second)
+                                if (index == 0) moveTo(offset.x, offset.y) else lineTo(offset.x, offset.y)
+                            }
+                        }
+                        drawPath(
+                            path = predictionPath,
+                            color = accentColor.copy(alpha = 0.7f),
+                            style = Stroke(
+                                width = 4f,
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f)),
+                                cap = StrokeCap.Round,
+                            ),
+                        )
+                    }
                 }
                 Text(
                     when {
@@ -419,12 +549,83 @@ private fun GrowthChartCard(
                 )
                 if (metric == GrowthMetric.HEIGHT) {
                     Text("身高参考线采用 WHO 0-5 岁身长/身高标准；2 岁前主要对应身长。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else if (metric == GrowthMetric.BMI) {
+                    Text("BMI 参考线按现有 WHO 体重/身高百分位近似换算，用于辅助观察趋势。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     Text("参考线来源为 WHO Child Growth Standards 0-5 岁百分位表。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (predictionPoints.isNotEmpty()) {
+                    Text("虚线为基于现有数据点的线性趋势预测，仅作观察参考。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
     }
+}
+
+@Composable
+private fun VaccineReactionDialog(
+    vaccine: VaccineEntity,
+    onDismiss: () -> Unit,
+    onSubmit: (VaccineReactionDraft) -> Unit,
+) {
+    var reactionNote by rememberSaveable(vaccine.scheduleKey) { mutableStateOf(vaccine.reactionNote.orEmpty()) }
+    var hadFever by rememberSaveable(vaccine.scheduleKey) { mutableStateOf(vaccine.hadFever) }
+    var reactionSeverity by rememberSaveable(vaccine.scheduleKey) { mutableStateOf(vaccine.reactionSeverity) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("${vaccine.vaccineName} 接种反应") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("是否发烧")
+                    Switch(checked = hadFever, onCheckedChange = { hadFever = it })
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ReactionSeverity.entries.forEach { severity ->
+                        FilterChip(
+                            selected = reactionSeverity == severity,
+                            onClick = { reactionSeverity = if (reactionSeverity == severity) null else severity },
+                            label = { Text(severity.label) },
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = reactionNote,
+                    onValueChange = { reactionNote = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("反应描述") },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSubmit(
+                        VaccineReactionDraft(
+                            reactionNote = reactionNote,
+                            hadFever = hadFever,
+                            reactionSeverity = reactionSeverity,
+                        ),
+                    )
+                },
+            ) {
+                Text("保存")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        },
+    )
 }
 
 @Composable
@@ -524,6 +725,7 @@ private fun buildMeasurementPoints(
                 GrowthMetric.WEIGHT -> record.weightKg
                 GrowthMetric.HEIGHT -> record.heightCm
                 GrowthMetric.HEAD -> record.headCircCm
+                GrowthMetric.BMI -> record.bmiValue()
             }
             if (ageDays < 0 || value == null) null else ageDays to value
         }
@@ -541,4 +743,61 @@ private fun determineChartWindowDays(
         relevantAge <= 730 -> 730
         else -> 1_856
     }
+}
+
+private fun GrowthEntity.bmiValue(): Float? {
+    val weight = weightKg ?: return null
+    val height = heightCm ?: return null
+    val meter = height / 100f
+    return if (meter <= 0f) null else weight / meter.pow(2)
+}
+
+private fun buildPredictionPoints(
+    points: List<Pair<Int, Float>>,
+    visibleMaxAgeDays: Int,
+): List<Pair<Int, Float>> {
+    if (points.size < 3) return emptyList()
+    val xs = points.map { it.first.toDouble() }
+    val ys = points.map { it.second.toDouble() }
+    val meanX = xs.average()
+    val meanY = ys.average()
+    val variance = xs.sumOf { (it - meanX) * (it - meanX) }
+    if (variance == 0.0) return emptyList()
+    val slope = xs.indices.sumOf { index -> (xs[index] - meanX) * (ys[index] - meanY) } / variance
+    val intercept = meanY - slope * meanX
+    val startX = points.first().first
+    val endX = maxOf(points.last().first + 60, visibleMaxAgeDays)
+    return listOf(startX, endX).map { ageDays ->
+        ageDays to (intercept + slope * ageDays).toFloat()
+    }
+}
+
+private fun growthVelocityText(
+    profile: BabyProfile?,
+    records: List<GrowthEntity>,
+    current: GrowthEntity,
+): String? {
+    val sorted = records.sortedBy { it.date }
+    val index = sorted.indexOfFirst { it.id == current.id }
+    if (index <= 0) return null
+    val previous = sorted[index - 1]
+    val monthsBetween = (ChronoUnit.DAYS.between(previous.date, current.date).toFloat() / 30f).takeIf { it > 0f } ?: return null
+    val ageMonths = profile?.let { ChronoUnit.MONTHS.between(it.birthday, current.date).toInt() } ?: 0
+    val weightText = current.weightKg?.let { currentWeight ->
+        previous.weightKg?.let { previousWeight ->
+            val deltaPerMonth = ((currentWeight - previousWeight) * 1000f) / monthsBetween
+            WhoGrowthStandards.monthlyVelocityRange(GrowthMetric.WEIGHT, ageMonths)?.let { range ->
+                "体重月增约 ${deltaPerMonth.toInt()}g（正常范围 ${range.min.toInt()}-${range.max.toInt()}${range.unit.removePrefix("g")})"
+            }
+        }
+    }
+    val heightText = current.heightCm?.let { currentHeight ->
+        previous.heightCm?.let { previousHeight ->
+            val deltaPerMonth = (currentHeight - previousHeight) / monthsBetween
+            WhoGrowthStandards.monthlyVelocityRange(GrowthMetric.HEIGHT, ageMonths)?.let { range ->
+                "身高月增约 ${String.format("%.1f", deltaPerMonth)}cm（正常范围 ${String.format("%.1f", range.min)}-${String.format("%.1f", range.max)}${range.unit.removePrefix("cm")})"
+            }
+        }
+    }
+    return listOfNotNull(weightText, heightText).firstOrNull()
 }

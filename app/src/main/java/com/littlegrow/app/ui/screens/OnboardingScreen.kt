@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -29,22 +30,27 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.littlegrow.app.data.BabyProfile
 import com.littlegrow.app.data.Gender
+import com.littlegrow.app.ui.BabyAvatar
+import com.littlegrow.app.ui.PhotoActionRow
 import com.littlegrow.app.ui.dateFormatter
 import com.littlegrow.app.ui.NativeDatePickerField
+import com.littlegrow.app.ui.rememberManagedPhotoAttachment
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -87,6 +93,23 @@ fun OnboardingScreen(
     var birthday by rememberSaveable { mutableStateOf(LocalDate.now().format(dateFormatter)) }
     var gender by rememberSaveable { mutableStateOf(Gender.BOY) }
     var errorText by rememberSaveable { mutableStateOf<String?>(null) }
+    var retainedAvatarPath by rememberSaveable { mutableStateOf<String?>(null) }
+    val avatarAttachment = rememberManagedPhotoAttachment(
+        initialPhotoPath = null,
+        photoTag = "avatar",
+        onError = { errorText = it },
+    )
+    val latestAvatarPath by rememberUpdatedState(avatarAttachment.photoPath)
+    val latestRetainedAvatarPath by rememberUpdatedState(retainedAvatarPath)
+    val latestDiscardAvatarChanges by rememberUpdatedState(avatarAttachment.discardChanges)
+
+    DisposableEffect(Unit) {
+        onDispose {
+            if (latestAvatarPath != latestRetainedAvatarPath) {
+                latestDiscardAvatarChanges()
+            }
+        }
+    }
 
     fun tryComplete() {
         val trimmedName = name.trim()
@@ -103,11 +126,14 @@ fun OnboardingScreen(
             return
         }
         errorText = null
+        avatarAttachment.commitChanges()
+        retainedAvatarPath = avatarAttachment.photoPath
         onComplete(
             BabyProfile(
                 name = trimmedName,
                 birthday = parsedBirthday,
                 gender = gender,
+                avatarPath = avatarAttachment.photoPath,
             ),
         )
     }
@@ -148,9 +174,13 @@ fun OnboardingScreen(
                     birthday = birthday,
                     gender = gender,
                     errorText = errorText,
+                    avatarPath = avatarAttachment.photoPath,
                     onNameChange = { name = it; errorText = null },
                     onBirthdayChange = { birthday = it; errorText = null },
                     onGenderChange = { gender = it },
+                    onTakeAvatar = avatarAttachment.onTakePhoto,
+                    onPickAvatar = avatarAttachment.onPickPhoto,
+                    onRemoveAvatar = avatarAttachment.onRemovePhoto,
                 )
             }
         }
@@ -261,9 +291,13 @@ private fun ProfileSetupPage(
     birthday: String,
     gender: Gender,
     errorText: String?,
+    avatarPath: String?,
     onNameChange: (String) -> Unit,
     onBirthdayChange: (String) -> Unit,
     onGenderChange: (Gender) -> Unit,
+    onTakeAvatar: () -> Unit,
+    onPickAvatar: () -> Unit,
+    onRemoveAvatar: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -273,9 +307,14 @@ private fun ProfileSetupPage(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(
-            text = "\uD83D\uDC76",
-            fontSize = 64.sp,
+        BabyAvatar(
+            avatarPath = avatarPath,
+            contentDescription = "宝宝头像",
+            modifier = Modifier
+                .size(108.dp)
+                .clip(CircleShape),
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+            borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
@@ -292,7 +331,16 @@ private fun ProfileSetupPage(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(20.dp))
+        PhotoActionRow(
+            title = "头像",
+            removeLabel = "移除头像",
+            hasPhoto = avatarPath != null,
+            onTakePhoto = onTakeAvatar,
+            onPickPhoto = onPickAvatar,
+            onRemovePhoto = onRemoveAvatar,
+        )
+        Spacer(modifier = Modifier.height(24.dp))
 
         OutlinedTextField(
             value = name,

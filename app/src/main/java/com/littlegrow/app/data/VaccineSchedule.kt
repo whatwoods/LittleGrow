@@ -6,6 +6,7 @@ data class VaccineTemplate(
     val scheduleKey: String,
     val vaccineName: String,
     val doseNumber: Int,
+    val category: VaccineCategory = VaccineCategory.NATIONAL,
     val monthsAfterBirth: Long = 0,
     val daysAfterBirth: Long = 0,
 )
@@ -30,12 +31,23 @@ private val nationalVaccineTemplates = listOf(
     VaccineTemplate("hepa_1", "甲肝减毒活疫苗", 1, monthsAfterBirth = 18),
 )
 
+private val recommendedVaccineTemplates = listOf(
+    VaccineTemplate("rota_1", "轮状病毒疫苗", 1, category = VaccineCategory.RECOMMENDED, monthsAfterBirth = 2),
+    VaccineTemplate("rota_2", "轮状病毒疫苗", 2, category = VaccineCategory.RECOMMENDED, monthsAfterBirth = 4),
+    VaccineTemplate("pcv13_1", "13 价肺炎疫苗", 1, category = VaccineCategory.RECOMMENDED, monthsAfterBirth = 2),
+    VaccineTemplate("pcv13_2", "13 价肺炎疫苗", 2, category = VaccineCategory.RECOMMENDED, monthsAfterBirth = 4),
+    VaccineTemplate("pcv13_3", "13 价肺炎疫苗", 3, category = VaccineCategory.RECOMMENDED, monthsAfterBirth = 6),
+    VaccineTemplate("ev71_1", "EV71 手足口疫苗", 1, category = VaccineCategory.RECOMMENDED, monthsAfterBirth = 6),
+    VaccineTemplate("flu_1", "流感疫苗", 1, category = VaccineCategory.RECOMMENDED, monthsAfterBirth = 6),
+    VaccineTemplate("varicella_1", "水痘疫苗", 1, category = VaccineCategory.RECOMMENDED, monthsAfterBirth = 12),
+)
+
 fun buildNationalVaccineSchedule(
     birthday: LocalDate,
     existing: List<VaccineEntity>,
 ): List<VaccineEntity> {
     val existingByKey = existing.associateBy { it.scheduleKey }
-    return nationalVaccineTemplates.map { template ->
+    return (nationalVaccineTemplates + recommendedVaccineTemplates).map { template ->
         val scheduledDate = birthday
             .plusMonths(template.monthsAfterBirth)
             .plusDays(template.daysAfterBirth)
@@ -44,9 +56,13 @@ fun buildNationalVaccineSchedule(
             scheduleKey = template.scheduleKey,
             vaccineName = template.vaccineName,
             doseNumber = template.doseNumber,
+            category = current?.category ?: template.category,
             scheduledDate = scheduledDate,
             actualDate = current?.actualDate,
             isDone = current?.isDone ?: false,
+            reactionNote = current?.reactionNote,
+            hadFever = current?.hadFever ?: false,
+            reactionSeverity = current?.reactionSeverity,
         )
     }.sortedBy { it.scheduledDate }
 }

@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.first
 import java.io.File
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 
 class LittleGrowRepository(
     private val appContext: Context,
@@ -25,14 +26,33 @@ class LittleGrowRepository(
     val themeMode: Flow<ThemeMode> = preferencesRepository.themeMode
     val appTheme: Flow<AppTheme> = preferencesRepository.appTheme
     val vaccineRemindersEnabled: Flow<Boolean> = preferencesRepository.vaccineRemindersEnabled
+    val quickActionNotificationsEnabled: Flow<Boolean> = preferencesRepository.quickActionNotificationsEnabled
+    val anomalyRemindersEnabled: Flow<Boolean> = preferencesRepository.anomalyRemindersEnabled
+    val diaperRemindersEnabled: Flow<Boolean> = preferencesRepository.diaperRemindersEnabled
+    val largeTextModeEnabled: Flow<Boolean> = preferencesRepository.largeTextModeEnabled
+    val darkModeScheduleEnabled: Flow<Boolean> = preferencesRepository.darkModeScheduleEnabled
+    val darkModeStartHour: Flow<Int> = preferencesRepository.darkModeStartHour
+    val darkModeEndHour: Flow<Int> = preferencesRepository.darkModeEndHour
+    val homeModules: Flow<Set<HomeModule>> = preferencesRepository.homeModules
+    val caregivers: Flow<List<String>> = preferencesRepository.caregivers
+    val currentCaregiver: Flow<String> = preferencesRepository.currentCaregiver
+    val autoBackupFrequency: Flow<BackupFrequency> = preferencesRepository.autoBackupFrequency
+    val shownCelebrations: Flow<Set<String>> = preferencesRepository.shownCelebrations
+    val seenGuides: Flow<Set<String>> = preferencesRepository.seenGuides
     val onboardingCompleted: Flow<Boolean> = preferencesRepository.onboardingCompleted
 
     suspend fun saveProfile(profile: BabyProfile) {
+        val existing = database.babyDao().observeProfile().first()
+        val normalizedAvatar = profile.avatarPath?.trim()?.takeIf { it.isNotEmpty() }
+        if (existing?.avatarPath != null && existing.avatarPath != normalizedAvatar) {
+            deleteManagedPhoto(existing.avatarPath)
+        }
         database.babyDao().upsertProfile(
             BabyEntity(
                 name = profile.name.trim(),
                 birthday = profile.birthday,
                 gender = profile.gender,
+                avatarPath = normalizedAvatar,
             ),
         )
         syncVaccinesForBirthday(profile.birthday)
@@ -43,10 +63,20 @@ class LittleGrowRepository(
         draft: FeedingDraft,
     ) {
         val existing = recordId?.let { database.feedingDao().getById(it) }
+        val existingRecords = database.feedingDao().getAll()
         val normalizedPhoto = draft.photoPath?.trim()?.takeIf { it.isNotEmpty() }
         if (existing?.photoPath != null && existing.photoPath != normalizedPhoto) {
             deleteManagedPhoto(existing.photoPath)
         }
+        val normalizedFoodName = draft.foodName?.trim()?.takeIf { it.isNotEmpty() }
+        val isFirstSolidFood = draft.type == FeedingType.SOLID_FOOD &&
+            normalizedFoodName != null &&
+            existingRecords.none { record ->
+                record.id != recordId &&
+                    record.type == FeedingType.SOLID_FOOD &&
+                    record.foodName?.trim()?.equals(normalizedFoodName, ignoreCase = true) == true
+            }
+        val normalizedCaregiver = draft.caregiver?.trim()?.takeIf { it.isNotEmpty() } ?: preferencesRepository.currentCaregiver.first()
         database.feedingDao().upsert(
             FeedingEntity(
                 id = recordId ?: 0,
@@ -54,9 +84,19 @@ class LittleGrowRepository(
                 happenedAt = draft.happenedAt,
                 durationMinutes = draft.durationMinutes,
                 amountMl = draft.amountMl,
-                foodName = draft.foodName?.trim()?.takeIf { it.isNotEmpty() },
+                foodName = normalizedFoodName,
                 photoPath = normalizedPhoto,
                 note = draft.note?.trim()?.takeIf { it.isNotEmpty() },
+                allergyObservation = when {
+                    isFirstSolidFood -> AllergyStatus.OBSERVING
+                    existing != null -> draft.allergyObservation
+                    else -> draft.allergyObservation
+                },
+                observationEndDate = when {
+                    isFirstSolidFood -> draft.happenedAt.toLocalDate().plusDays(3)
+                    else -> draft.observationEndDate
+                },
+                caregiver = normalizedCaregiver,
             ),
         )
     }
@@ -75,12 +115,16 @@ class LittleGrowRepository(
         recordId: Long?,
         draft: SleepDraft,
     ) {
+        val normalizedCaregiver = draft.caregiver?.trim()?.takeIf { it.isNotEmpty() } ?: preferencesRepository.currentCaregiver.first()
         database.sleepDao().upsert(
             SleepEntity(
                 id = recordId ?: 0,
                 startTime = draft.startTime,
                 endTime = draft.endTime,
                 note = draft.note?.trim()?.takeIf { it.isNotEmpty() },
+                sleepType = draft.sleepType ?: inferSleepType(draft.startTime),
+                fallingAsleepMethod = draft.fallingAsleepMethod,
+                caregiver = normalizedCaregiver,
             ),
         )
     }
@@ -97,6 +141,11 @@ class LittleGrowRepository(
         recordId: Long?,
         draft: DiaperDraft,
     ) {
+        val existing = recordId?.let { database.diaperDao().getAll().firstOrNull { record -> record.id == it } }
+        val normalizedPhoto = draft.photoPath?.trim()?.takeIf { it.isNotEmpty() }
+        if (existing?.photoPath != null && existing.photoPath != normalizedPhoto) {
+            deleteManagedPhoto(existing.photoPath)
+        }
         database.diaperDao().upsert(
             DiaperEntity(
                 id = recordId ?: 0,
@@ -105,6 +154,8 @@ class LittleGrowRepository(
                 poopColor = draft.poopColor,
                 poopTexture = draft.poopTexture,
                 note = draft.note?.trim()?.takeIf { it.isNotEmpty() },
+                photoPath = normalizedPhoto,
+                caregiver = draft.caregiver?.trim()?.takeIf { it.isNotEmpty() } ?: preferencesRepository.currentCaregiver.first(),
             ),
         )
     }
@@ -114,7 +165,9 @@ class LittleGrowRepository(
     }
 
     suspend fun deleteDiaper(id: Long) {
+        val existing = database.diaperDao().getAll().firstOrNull { it.id == id }
         database.diaperDao().deleteById(id)
+        deleteManagedPhoto(existing?.photoPath)
     }
 
     suspend fun saveGrowth(
@@ -184,6 +237,7 @@ class LittleGrowRepository(
                 temperatureC = draft.temperatureC,
                 dosage = draft.dosage?.trim()?.takeIf { it.isNotEmpty() },
                 note = draft.note?.trim()?.takeIf { it.isNotEmpty() },
+                caregiver = draft.caregiver?.trim()?.takeIf { it.isNotEmpty() } ?: preferencesRepository.currentCaregiver.first(),
             ),
         )
     }
@@ -207,6 +261,7 @@ class LittleGrowRepository(
                 type = draft.type,
                 durationMinutes = draft.durationMinutes,
                 note = draft.note?.trim()?.takeIf { it.isNotEmpty() },
+                caregiver = draft.caregiver?.trim()?.takeIf { it.isNotEmpty() } ?: preferencesRepository.currentCaregiver.first(),
             ),
         )
     }
@@ -231,6 +286,54 @@ class LittleGrowRepository(
         preferencesRepository.setVaccineRemindersEnabled(enabled)
     }
 
+    fun setQuickActionNotificationsEnabled(enabled: Boolean) {
+        preferencesRepository.setQuickActionNotificationsEnabled(enabled)
+    }
+
+    fun setAnomalyRemindersEnabled(enabled: Boolean) {
+        preferencesRepository.setAnomalyRemindersEnabled(enabled)
+    }
+
+    fun setDiaperRemindersEnabled(enabled: Boolean) {
+        preferencesRepository.setDiaperRemindersEnabled(enabled)
+    }
+
+    fun setLargeTextModeEnabled(enabled: Boolean) {
+        preferencesRepository.setLargeTextModeEnabled(enabled)
+    }
+
+    fun setDarkModeSchedule(
+        enabled: Boolean,
+        startHour: Int,
+        endHour: Int,
+    ) {
+        preferencesRepository.setDarkModeSchedule(enabled, startHour, endHour)
+    }
+
+    fun setHomeModules(modules: Set<HomeModule>) {
+        preferencesRepository.setHomeModules(modules)
+    }
+
+    fun setCaregivers(caregivers: List<String>) {
+        preferencesRepository.setCaregivers(caregivers)
+    }
+
+    fun setCurrentCaregiver(name: String) {
+        preferencesRepository.setCurrentCaregiver(name)
+    }
+
+    fun setAutoBackupFrequency(frequency: BackupFrequency) {
+        preferencesRepository.setAutoBackupFrequency(frequency)
+    }
+
+    fun markCelebrationShown(key: String) {
+        preferencesRepository.markCelebrationShown(key)
+    }
+
+    fun markGuideSeen(month: Int) {
+        preferencesRepository.markGuideSeen(month)
+    }
+
     fun setOnboardingCompleted() {
         preferencesRepository.setOnboardingCompleted()
     }
@@ -251,6 +354,18 @@ class LittleGrowRepository(
         actualDate: LocalDate? = if (isDone) LocalDate.now() else null,
     ) {
         database.vaccineDao().updateStatus(scheduleKey, isDone, actualDate)
+    }
+
+    suspend fun updateVaccineReaction(
+        scheduleKey: String,
+        draft: VaccineReactionDraft,
+    ) {
+        database.vaccineDao().updateReaction(
+            scheduleKey = scheduleKey,
+            reactionNote = draft.reactionNote?.trim()?.takeIf { it.isNotEmpty() },
+            hadFever = draft.hadFever,
+            reactionSeverity = draft.reactionSeverity,
+        )
     }
 
     suspend fun buildExportSnapshot(): ExportSnapshot {
@@ -276,6 +391,7 @@ class LittleGrowRepository(
                 name = "小小芽",
                 birthday = birthday,
                 gender = Gender.GIRL,
+                avatarPath = null,
             ),
         )
         addGrowth(
@@ -362,6 +478,15 @@ class LittleGrowRepository(
         }.mapNotNull { runCatching { it.canonicalFile }.getOrNull() }
         return managedRoots.any { root ->
             file.path.startsWith(root.path)
+        }
+    }
+
+    private fun inferSleepType(startTime: LocalDateTime): SleepType {
+        val time = startTime.toLocalTime()
+        return if (time >= LocalTime.of(19, 0) || time < LocalTime.of(7, 0)) {
+            SleepType.NIGHT_SLEEP
+        } else {
+            SleepType.NAP
         }
     }
 }

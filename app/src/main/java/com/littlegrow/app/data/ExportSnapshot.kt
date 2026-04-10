@@ -20,5 +20,6 @@ fun BabyEntity.toProfile(): BabyProfile {
         name = name,
         birthday = birthday,
         gender = gender,
+        avatarPath = avatarPath,
     )
 }

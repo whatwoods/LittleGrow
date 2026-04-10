@@ -38,5 +38,6 @@ fun Float?.formatMetric(metric: GrowthMetric): String {
         GrowthMetric.WEIGHT -> String.format("%.1f kg", this)
         GrowthMetric.HEIGHT -> String.format("%.1f cm", this)
         GrowthMetric.HEAD -> String.format("%.1f cm", this)
+        GrowthMetric.BMI -> String.format("%.1f", this)
     }
 }

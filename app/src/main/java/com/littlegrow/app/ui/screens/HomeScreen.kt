@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
@@ -92,14 +95,31 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    BabyAvatar(
-                        avatarPath = summary.profile?.avatarPath,
-                        contentDescription = "宝宝头像",
-                        modifier = Modifier
-                            .size(72.dp),
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                        borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                    )
+                    val avatarPath = summary.profile?.avatarPath
+                    val babyName = summary.profile?.name ?: "宝"
+                    if (avatarPath.isNullOrBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = babyName.take(1),
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    } else {
+                        BabyAvatar(
+                            avatarPath = avatarPath,
+                            contentDescription = "宝宝头像",
+                            modifier = Modifier.size(72.dp),
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                            borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                        )
+                    }
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
                             text = summary.profile?.name ?: "欢迎来到长呀长",
@@ -182,8 +202,10 @@ fun HomeScreen(
                     if (summary.recentFeedings.isEmpty()) {
                         item { EmptyRecordCard("当前筛选下还没有喂养记录。") }
                     } else {
-                        summary.recentFeedings.forEach { feeding ->
-                            item { HomeFeedingCard(feeding) }
+                        items(summary.recentFeedings) { feeding ->
+                            Box(modifier = Modifier.animateItem().padding(bottom = 8.dp)) {
+                                HomeFeedingCard(feeding)
+                            }
                         }
                     }
                 }
@@ -193,8 +215,10 @@ fun HomeScreen(
                     if (summary.recentSleeps.isEmpty()) {
                         item { EmptyRecordCard("当前筛选下还没有睡眠记录。") }
                     } else {
-                        summary.recentSleeps.forEach { sleep ->
-                            item { HomeSleepCard(sleep) }
+                        items(summary.recentSleeps) { sleep ->
+                            Box(modifier = Modifier.animateItem().padding(bottom = 8.dp)) {
+                                HomeSleepCard(sleep)
+                            }
                         }
                     }
                 }
@@ -248,36 +272,36 @@ private fun QuickActionGrid(
     onOpenMedicalSummary: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    ElevatedCard {
+    ElevatedCard(modifier = Modifier.softShadow()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text("快捷入口", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("快捷操作", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                QuickActionChip("记喂奶", Modifier.weight(1f)) { onOpenRecords(RecordTab.FEEDING) }
-                QuickActionChip("记睡眠", Modifier.weight(1f)) { onOpenRecords(RecordTab.SLEEP) }
-                QuickActionChip("记尿布", Modifier.weight(1f)) { onOpenRecords(RecordTab.DIAPER) }
+                FilledTonalButton(onClick = { onOpenRecords(RecordTab.FEEDING) }, modifier = Modifier.weight(1f)) { Text("记喂奶") }
+                FilledTonalButton(onClick = { onOpenRecords(RecordTab.SLEEP) }, modifier = Modifier.weight(1f)) { Text("记睡眠") }
+                FilledTonalButton(onClick = { onOpenRecords(RecordTab.DIAPER) }, modifier = Modifier.weight(1f)) { Text("记尿布") }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                QuickActionChip("健康记录", Modifier.weight(1f)) { onOpenRecords(RecordTab.MEDICAL) }
-                QuickActionChip("成长曲线", Modifier.weight(1f), onOpenGrowth)
-                QuickActionChip("就医摘要", Modifier.weight(1f), onOpenMedicalSummary)
+                FilledTonalButton(onClick = { onOpenRecords(RecordTab.MEDICAL) }, modifier = Modifier.weight(1f)) { Text("健康") }
+                FilledTonalButton(onClick = onOpenGrowth, modifier = Modifier.weight(1f)) { Text("生长") }
+                FilledTonalButton(onClick = onOpenMedicalSummary, modifier = Modifier.weight(1f)) { Text("就医") }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                QuickActionChip("里程碑", Modifier.weight(1f), onOpenTimeline)
-                QuickActionChip("设置", Modifier.weight(1f), onOpenSettings)
+                FilledTonalButton(onClick = onOpenTimeline, modifier = Modifier.weight(1f)) { Text("里程碑") }
+                FilledTonalButton(onClick = onOpenSettings, modifier = Modifier.weight(1f)) { Text("设置") }
             }
         }
     }
@@ -497,7 +521,7 @@ private fun SectionCard(
     emptyText: String,
     content: @Composable () -> Unit,
 ) {
-    ElevatedCard {
+    ElevatedCard(modifier = Modifier.softShadow()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -506,6 +530,20 @@ private fun SectionCard(
         ) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             content()
+        }
+    }
+}
+
+@Composable
+private fun EmptyRecordCard(text: String) {
+    ElevatedCard(modifier = Modifier.softShadow()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -523,7 +561,7 @@ private fun SummaryCard(
     badge: ReferenceBadgeData? = null,
     subtitle: String? = null,
 ) {
-    ElevatedCard(modifier = modifier) {
+    ElevatedCard(modifier = modifier.softShadow()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -531,7 +569,7 @@ private fun SummaryCard(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(value, style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             badge?.let {
                 ReferenceBadgeComposable(text = it.text, color = it.color)
             }
@@ -543,29 +581,16 @@ private fun SummaryCard(
 }
 
 @Composable
-private fun QuickActionChip(
-    label: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    AssistChip(
-        modifier = modifier,
-        onClick = onClick,
-        label = { Text(label) },
-    )
-}
-
-@Composable
 private fun HomeFeedingCard(feeding: FeedingEntity) {
-    ElevatedCard {
+    ElevatedCard(modifier = Modifier.softShadow()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text(feeding.type.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text(feeding.happenedAt.formatDateTime())
+            Text(feeding.type.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(feeding.happenedAt.formatDateTime(), style = MaterialTheme.typography.bodyMedium)
             val details = buildList {
                 feeding.durationMinutes?.let { add("${it} 分钟") }
                 feeding.amountMl?.let { add("${it} ml") }
@@ -574,7 +599,7 @@ private fun HomeFeedingCard(feeding: FeedingEntity) {
                 feeding.note?.let { add(it) }
             }
             if (details.isNotEmpty()) {
-                Text(details.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(details.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -582,25 +607,28 @@ private fun HomeFeedingCard(feeding: FeedingEntity) {
 
 @Composable
 private fun HomeSleepCard(sleep: SleepEntity) {
-    ElevatedCard {
+    ElevatedCard(modifier = Modifier.softShadow()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text("睡眠", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text("${sleep.startTime.formatDateTime()} - ${sleep.endTime.formatDateTime()}")
+            Text("睡眠", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("${sleep.startTime.formatDateTime()} - ${sleep.endTime.formatDateTime()}", style = MaterialTheme.typography.bodyMedium)
             Text(
                 Duration.between(sleep.startTime, sleep.endTime).toMinutes().formatMinutes(),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Medium,
             )
             Text(
                 listOfNotNull(sleep.sleepType.label, sleep.fallingAsleepMethod?.label, sleep.caregiver?.let { "记录人 $it" }).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             sleep.note?.let {
-                Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

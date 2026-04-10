@@ -1,14 +1,19 @@
 package com.littlegrow.app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.AlertDialog
@@ -16,6 +21,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,6 +32,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.littlegrow.app.data.BabyProfile
@@ -80,100 +88,86 @@ fun TimelineScreen(
         .mapNotNull(MonthlyGuide::guideFor)
         .reversed()
 
+    // Combine all timeline items logically, assuming milestones are the primary timeline events
+    // For simplicity, we just list the items with the timeline visual structure
+    val totalMilestones = milestones.size
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
                 top = contentPadding.calculateTopPadding() + 16.dp,
                 bottom = contentPadding.calculateBottomPadding() + 96.dp,
             ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                ElevatedCard {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text("时光轴", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text(
-                            "把翻身、坐稳、发出第一声“咿呀”这些节点记下来，还能给里程碑附一张照片。",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("时光轴", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        "把翻身、坐稳、发出第一声“咿呀”这些节点记下来，还能给里程碑附一张照片。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
-            }
-
-            if (stageReports.isNotEmpty()) {
-                item {
-                    TimelineSectionTitle("阶段小结")
-                }
-                items(stageReports, key = { it.day }) { report ->
-                    StageReportCard(report)
-                }
-            }
-
-            if (monthlyGuides.isNotEmpty()) {
-                item {
-                    TimelineSectionTitle("月龄指南")
-                }
-                items(monthlyGuides, key = { it.month }) { guide ->
-                    ElevatedCard {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Text(guide.title, fontWeight = FontWeight.SemiBold)
-                            Text(guide.developmentHighlights.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-
-            item {
-                TimelineSectionTitle("年度总结")
-            }
-            item {
-                YearlySummaryCard(
-                    feedings = feedings,
-                    sleeps = sleeps,
-                    diapers = diapers,
-                )
-            }
-
-            item {
-                TimelineSectionTitle("里程碑")
             }
 
             if (milestones.isEmpty()) {
-                item { EmptyRecordCard("还没有里程碑记录。") }
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Text("还没有里程碑记录。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             } else {
-                items(milestones, key = { it.id }) { milestone ->
-                    ElevatedCard {
+                itemsIndexed(milestones, key = { _, m -> m.id }) { index, milestone ->
+                    TimelineRow(
+                        isFirst = index == 0,
+                        isLast = index == totalMilestones - 1,
+                        nodeColor = MaterialTheme.colorScheme.primary,
+                    ) {
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            Text(milestone.title, fontWeight = FontWeight.SemiBold)
-                            Text("${milestone.category.label} · ${milestone.achievedDate.formatDate()}")
-                            profile?.birthday?.let { birthday ->
-                                val day = ChronoUnit.DAYS.between(birthday, milestone.achievedDate) + 1
-                                Text("出生第 ${day} 天", color = MaterialTheme.colorScheme.tertiary)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(milestone.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                profile?.birthday?.let { birthday ->
+                                    val day = ChronoUnit.DAYS.between(birthday, milestone.achievedDate) + 1
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text(
+                                            "出生第 $day 天",
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
                             }
-                            milestone.photoPath?.let {
-                                PhotoPreviewCard(filePath = it, contentDescription = "里程碑照片")
-                            }
+                            
+                            Text("${milestone.achievedDate.formatDate()} · ${milestone.category.label}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            
                             milestone.note?.let {
-                                Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            androidx.compose.foundation.layout.Row(
+                            
+                            milestone.photoPath?.let {
+                                Box(modifier = Modifier.padding(top = 4.dp)) {
+                                    PhotoPreviewCard(filePath = it, contentDescription = "里程碑照片")
+                                }
+                            }
+                            
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.End,
                             ) {
@@ -191,6 +185,54 @@ fun TimelineScreen(
                             }
                         }
                     }
+                }
+            }
+
+            if (stageReports.isNotEmpty() || monthlyGuides.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        "更多记录",
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            if (stageReports.isNotEmpty()) {
+                itemsIndexed(stageReports, key = { _, it -> "sr_" + it.day }) { _, report ->
+                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        StageReportCard(report)
+                    }
+                }
+            }
+
+            if (monthlyGuides.isNotEmpty()) {
+                itemsIndexed(monthlyGuides, key = { _, it -> "mg_" + it.month }) { _, guide ->
+                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(guide.title, fontWeight = FontWeight.SemiBold)
+                                Text(guide.developmentHighlights.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
+                    YearlySummaryCard(
+                        feedings = feedings,
+                        sleeps = sleeps,
+                        diapers = diapers,
+                    )
                 }
             }
         }
@@ -233,13 +275,37 @@ fun TimelineScreen(
 }
 
 @Composable
-private fun TimelineSectionTitle(title: String) {
-    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+private fun TimelineRow(
+    isFirst: Boolean,
+    isLast: Boolean,
+    nodeColor: Color,
+    content: @Composable () -> Unit
+) {
+    val lineColor = MaterialTheme.colorScheme.surfaceVariant
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .drawBehind {
+                val nodeY = 20.dp.toPx()
+                val lineX = 24.dp.toPx()
+                
+                if (!isFirst) {
+                    drawLine(lineColor, androidx.compose.ui.geometry.Offset(lineX, 0f), androidx.compose.ui.geometry.Offset(lineX, nodeY), strokeWidth = 2.dp.toPx())
+                }
+                if (!isLast) {
+                    drawLine(lineColor, androidx.compose.ui.geometry.Offset(lineX, nodeY), androidx.compose.ui.geometry.Offset(lineX, size.height), strokeWidth = 2.dp.toPx())
+                }
+                drawCircle(nodeColor, radius = 5.dp.toPx(), center = androidx.compose.ui.geometry.Offset(lineX, nodeY))
+            }
+            .padding(start = 48.dp, end = 16.dp, bottom = 24.dp)
+    ) {
+        content()
+    }
 }
 
 @Composable
 private fun StageReportCard(report: StageReportEntry) {
-    ElevatedCard {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -268,13 +334,14 @@ private fun YearlySummaryCard(
         .groupingBy { it.happenedAt.toLocalDate() }
         .eachCount()
         .maxByOrNull { it.value }
-    ElevatedCard {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            Text("年度总结", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium)
             Text("累计喂养 ${feedings.size} 次", fontWeight = FontWeight.SemiBold)
             Text(
                 "累计母乳时长 ${feedings.sumOf { it.durationMinutes ?: 0 }} 分钟，换尿布 ${diapers.size} 次。",
@@ -329,6 +396,9 @@ private fun AddMilestoneDialog(
                     label = { Text("标题") },
                     singleLine = true,
                 )
+                // FilterChipSection assumes there's a custom composable available. Since it was in the original, we keep it.
+                // Assuming it is accessible (e.g. defined in Forms.kt or something).
+                // Oh wait, FilterChipSection is not defined in this file, but it was in the original! So it's fine.
                 FilterChipSection("类别", MilestoneCategory.entries, category, { it.label }) { category = it }
                 NativeDatePickerField(
                     value = date,

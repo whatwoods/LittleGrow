@@ -9,10 +9,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +38,10 @@ import com.littlegrow.app.data.SleepDraft
 import com.littlegrow.app.data.SleepType
 import com.littlegrow.app.ui.NativeDateTimePickerField
 import com.littlegrow.app.ui.NativeDurationPickerField
+import com.littlegrow.app.ui.components.AdaptiveActionBar
+import com.littlegrow.app.ui.components.AdaptiveActionBarItem
+import com.littlegrow.app.ui.components.AdaptiveActionBarItemStyle
+import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
 import com.littlegrow.app.ui.dateTimeFormatter
 import com.littlegrow.app.ui.toLocalDateTimeOrNull
 import java.time.LocalDateTime
@@ -80,41 +82,37 @@ fun BatchRecordScreen(
                         "当前按「${recordTab.label}」批量补录。适合一天结束后把遗漏记录一次性补齐。",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        OutlinedButton(
-                            modifier = Modifier.weight(1f),
-                            onClick = { rows += BatchRecordRow.defaultFor(recordTab) },
-                        ) {
-                            Text("+ 添加一行")
-                        }
-                        OutlinedButton(
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                val drafts = rows.mapIndexed { index, row ->
-                                    row.toDraft(recordTab) ?: run {
-                                        errorText = "第 ${index + 1} 行还有未完成字段。"
-                                        return@OutlinedButton
+                    AdaptiveActionBar(
+                        items = listOf(
+                            AdaptiveActionBarItem(
+                                label = "+ 添加一行",
+                                onClick = { rows += BatchRecordRow.defaultFor(recordTab) },
+                            ),
+                            AdaptiveActionBarItem(
+                                label = "保存全部",
+                                onClick = onClick@{
+                                    val drafts = rows.mapIndexed { index, row ->
+                                        row.toDraft(recordTab) ?: run {
+                                            errorText = "第 ${index + 1} 行还有未完成字段。"
+                                            return@onClick
+                                        }
                                     }
-                                }
-                                errorText = null
-                                drafts.forEach { draft ->
-                                    when (draft) {
-                                        is FeedingDraft -> onAddFeeding(draft)
-                                        is SleepDraft -> onAddSleep(draft)
-                                        is DiaperDraft -> onAddDiaper(draft)
-                                        is MedicalDraft -> onAddMedical(draft)
-                                        is ActivityDraft -> onAddActivity(draft)
+                                    errorText = null
+                                    drafts.forEach { draft ->
+                                        when (draft) {
+                                            is FeedingDraft -> onAddFeeding(draft)
+                                            is SleepDraft -> onAddSleep(draft)
+                                            is DiaperDraft -> onAddDiaper(draft)
+                                            is MedicalDraft -> onAddMedical(draft)
+                                            is ActivityDraft -> onAddActivity(draft)
+                                        }
                                     }
-                                }
-                                onDone()
-                            },
-                        ) {
-                            Text("保存全部")
-                        }
-                    }
+                                    onDone()
+                                },
+                                style = AdaptiveActionBarItemStyle.FilledTonal,
+                            ),
+                        ),
+                    )
                     errorText?.let {
                         Text(it, color = MaterialTheme.colorScheme.error)
                     }

@@ -4,30 +4,46 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoGraph
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Timeline
 import androidx.compose.material.icons.rounded.Today
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarArrangement
+import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
+import androidx.compose.material3.Text
+import androidx.compose.material3.WideNavigationRail
+import androidx.compose.material3.WideNavigationRailItem
+import androidx.compose.material3.WideNavigationRailState
+import androidx.compose.material3.WideNavigationRailValue
+import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -47,7 +63,8 @@ import com.littlegrow.app.ui.screens.RecordsScreen
 import com.littlegrow.app.ui.screens.SettingsScreen
 import com.littlegrow.app.ui.screens.StageReportSheet
 import com.littlegrow.app.ui.screens.TimelineScreen
-import com.littlegrow.app.ui.theme.softShadow
+import com.littlegrow.app.ui.components.ExpressiveFloatingActionButton as FloatingActionButton
+import kotlinx.coroutines.launch
 
 private data class TopLevelDestination(
     val destination: AppDestination,
@@ -73,9 +90,15 @@ fun LittleGrowApp(
     themeMode: ThemeMode,
     appTheme: AppTheme,
 ) {
+    val configuration = LocalConfiguration.current
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route ?: AppDestination.HOME.route
+    val useNavigationRail = configuration.screenWidthDp >= 600
+    val useExpandedRail = configuration.screenWidthDp >= 840
+    val railState = rememberWideNavigationRailState(
+        initialValue = if (useExpandedRail) WideNavigationRailValue.Expanded else WideNavigationRailValue.Collapsed,
+    )
 
     val summary by viewModel.homeSummary.collectAsStateWithLifecycle()
     val profile by viewModel.profile.collectAsStateWithLifecycle()
@@ -123,6 +146,15 @@ fun LittleGrowApp(
     var showQuickRecordSheet by rememberSaveable { mutableStateOf(false) }
     var showHandoverSheet by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val showQuickRecordAction = currentRoute == AppDestination.HOME.route || currentRoute == AppDestination.RECORDS.route
+
+    fun navigateToTopLevel(destination: AppDestination) {
+        navController.navigate(destination.route) {
+            popUpTo(AppDestination.HOME.route) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
 
     LaunchedEffect(pendingDestination) {
         val destination = pendingDestination ?: return@LaunchedEffect
@@ -137,6 +169,13 @@ fun LittleGrowApp(
         val message = userMessage ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(message)
         viewModel.consumeUserMessage()
+    }
+
+    LaunchedEffect(useNavigationRail, useExpandedRail) {
+        if (!useNavigationRail) return@LaunchedEffect
+        railState.snapTo(
+            if (useExpandedRail) WideNavigationRailValue.Expanded else WideNavigationRailValue.Collapsed,
+        )
     }
 
     when (launchState) {
@@ -189,10 +228,9 @@ fun LittleGrowApp(
             SnackbarHost(hostState = snackbarHostState)
         },
         floatingActionButton = {
-            if (currentRoute == AppDestination.HOME.route || currentRoute == AppDestination.RECORDS.route) {
+            if (!useNavigationRail && showQuickRecordAction) {
                 FloatingActionButton(
                     onClick = { showQuickRecordSheet = true },
-                    // removed softShadow
                     shape = androidx.compose.material3.MaterialTheme.shapes.large,
                 ) {
                     Icon(Icons.Rounded.Add, contentDescription = "添加记录")
@@ -200,32 +238,34 @@ fun LittleGrowApp(
             }
         },
         bottomBar = {
-            NavigationBar {
-                topLevelDestinations.forEach { destination ->
-                    NavigationBarItem(
-                        selected = currentRoute == destination.destination.route,
-                        onClick = {
-                            navController.navigate(destination.destination.route) {
-                                popUpTo(AppDestination.HOME.route) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { androidx.compose.material3.Icon(destination.icon, destination.label) },
-                        label = { androidx.compose.material3.Text(destination.label) },
-                    )
-                }
+            if (!useNavigationRail) {
+                TopLevelShortNavigationBar(
+                    currentRoute = currentRoute,
+                    onNavigate = ::navigateToTopLevel,
+                )
             }
         },
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = AppDestination.HOME.route,
-            enterTransition = { slideIntoContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = androidx.compose.animation.core.spring()) },
-            exitTransition = { slideOutOfContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = androidx.compose.animation.core.spring()) },
-            popEnterTransition = { slideIntoContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = androidx.compose.animation.core.spring()) },
-            popExitTransition = { slideOutOfContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = androidx.compose.animation.core.spring()) },
-        ) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            if (useNavigationRail) {
+                TopLevelWideNavigationRail(
+                    currentRoute = currentRoute,
+                    railState = railState,
+                    showQuickRecordAction = showQuickRecordAction,
+                    onQuickRecord = { showQuickRecordSheet = true },
+                    onNavigate = ::navigateToTopLevel,
+                )
+            }
+
+            Box(modifier = Modifier.weight(1f)) {
+                NavHost(
+                    navController = navController,
+                    startDestination = AppDestination.HOME.route,
+                    enterTransition = { slideIntoContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = androidx.compose.animation.core.spring()) },
+                    exitTransition = { slideOutOfContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = androidx.compose.animation.core.spring()) },
+                    popEnterTransition = { slideIntoContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = androidx.compose.animation.core.spring()) },
+                    popExitTransition = { slideOutOfContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = androidx.compose.animation.core.spring()) },
+                ) {
             composable(AppDestination.HOME.route) {
                 HomeScreen(
                     summary = summary,
@@ -414,6 +454,84 @@ fun LittleGrowApp(
                     onGenerate = viewModel::buildMedicalSummary,
                 )
             }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopLevelShortNavigationBar(
+    currentRoute: String,
+    onNavigate: (AppDestination) -> Unit,
+) {
+    ShortNavigationBar(
+        arrangement = ShortNavigationBarArrangement.EqualWeight,
+    ) {
+        topLevelDestinations.forEach { destination ->
+            ShortNavigationBarItem(
+                selected = currentRoute == destination.destination.route,
+                onClick = { onNavigate(destination.destination) },
+                icon = { Icon(destination.icon, destination.label) },
+                label = { Text(destination.label) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun TopLevelWideNavigationRail(
+    currentRoute: String,
+    railState: WideNavigationRailState,
+    showQuickRecordAction: Boolean,
+    onQuickRecord: () -> Unit,
+    onNavigate: (AppDestination) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val railExpanded = railState.targetValue == WideNavigationRailValue.Expanded
+
+    WideNavigationRail(
+        modifier = Modifier.fillMaxHeight(),
+        state = railState,
+        header = {
+            Column(
+                modifier = Modifier.padding(horizontal = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                IconButton(
+                    onClick = { scope.launch { railState.toggle() } },
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Menu,
+                        contentDescription = if (railExpanded) "收起导航" else "展开导航",
+                    )
+                }
+
+                if (showQuickRecordAction) {
+                    if (railExpanded) {
+                        ExtendedFloatingActionButton(
+                            text = { Text("添加记录") },
+                            icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
+                            onClick = onQuickRecord,
+                        )
+                    } else {
+                        FloatingActionButton(onClick = onQuickRecord) {
+                            Icon(Icons.Rounded.Add, contentDescription = "添加记录")
+                        }
+                    }
+                }
+            }
+        },
+    ) {
+        topLevelDestinations.forEach { destination ->
+            WideNavigationRailItem(
+                railExpanded = railExpanded,
+                selected = currentRoute == destination.destination.route,
+                onClick = { onNavigate(destination.destination) },
+                icon = { Icon(destination.icon, destination.label) },
+                label = { Text(destination.label) },
+            )
         }
     }
 }

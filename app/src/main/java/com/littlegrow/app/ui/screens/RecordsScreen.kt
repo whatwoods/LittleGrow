@@ -20,12 +20,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,6 +57,11 @@ import com.littlegrow.app.data.RecordTab
 import com.littlegrow.app.data.SleepDraft
 import com.littlegrow.app.data.SleepEntity
 import com.littlegrow.app.ui.PhotoPreviewCard
+import com.littlegrow.app.ui.components.AdaptiveActionBar
+import com.littlegrow.app.ui.components.AdaptiveActionBarItem
+import com.littlegrow.app.ui.components.AdaptiveActionBarItemStyle
+import com.littlegrow.app.ui.components.ExpressiveOutlinedButton as OutlinedButton
+import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
 import com.littlegrow.app.ui.formatDate
 import com.littlegrow.app.ui.formatDateTime
 import java.time.Instant
@@ -616,10 +619,19 @@ private fun HeroCard(title: String, summary: String) {
 
 @Composable
 private fun RecordActionRow(onOpenBatchRecord: () -> Unit, onOpenHandoverSummary: () -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(modifier = Modifier.weight(1f), onClick = onOpenBatchRecord) { Text("批量补录") }
-        OutlinedButton(modifier = Modifier.weight(1f), onClick = onOpenHandoverSummary) { Text("交接摘要") }
-    }
+    AdaptiveActionBar(
+        items = listOf(
+            AdaptiveActionBarItem(
+                label = "批量补录",
+                onClick = onOpenBatchRecord,
+            ),
+            AdaptiveActionBarItem(
+                label = "交接摘要",
+                onClick = onOpenHandoverSummary,
+                style = AdaptiveActionBarItemStyle.FilledTonal,
+            ),
+        ),
+    )
 }
 
 @Composable

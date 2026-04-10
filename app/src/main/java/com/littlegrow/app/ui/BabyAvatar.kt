@@ -38,7 +38,7 @@ fun BabyAvatar(
     ) {
         if (avatarPath.isNullOrBlank()) {
             Image(
-                painter = painterResource(id = R.drawable.default_baby_avatar),
+                painter = painterResource(id = R.drawable.default_baby_avatar_image_jpg),
                 contentDescription = contentDescription,
                 modifier = Modifier
                     .fillMaxSize()

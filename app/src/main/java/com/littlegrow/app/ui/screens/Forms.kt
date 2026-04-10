@@ -8,13 +8,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +46,9 @@ import com.littlegrow.app.ui.NativeDateTimePickerField
 import com.littlegrow.app.ui.NativeDurationPickerField
 import com.littlegrow.app.ui.PhotoActionRow
 import com.littlegrow.app.ui.PhotoPreviewCard
+import com.littlegrow.app.ui.components.ExpressiveButton as Button
+import com.littlegrow.app.ui.components.ExpressiveOutlinedButton as OutlinedButton
+import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
 import com.littlegrow.app.ui.dateTimeFormatter
 import com.littlegrow.app.ui.rememberManagedPhotoAttachment
 import com.littlegrow.app.ui.toLocalDateTimeOrNull

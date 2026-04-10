@@ -14,15 +14,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Today
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +47,9 @@ import com.littlegrow.app.ui.formatDate
 import com.littlegrow.app.ui.formatDateTime
 import com.littlegrow.app.ui.formatMetric
 import com.littlegrow.app.ui.formatMinutes
+import com.littlegrow.app.ui.components.ExpressiveFilledTonalButton as FilledTonalButton
+import com.littlegrow.app.ui.components.ExpressiveFilterChip as FilterChip
+import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
 import com.littlegrow.app.ui.theme.softShadow
 import java.time.Duration
 import java.time.temporal.ChronoUnit
@@ -163,12 +163,14 @@ fun HomeScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            AssistChip(
+                            FilterChip(
+                                selected = caregiverFilter == null,
                                 onClick = { onCaregiverFilterChange(null) },
                                 label = { Text("全部") },
                             )
                             caregivers.forEach { caregiver ->
-                                AssistChip(
+                                FilterChip(
+                                    selected = caregiverFilter == caregiver,
                                     onClick = { onCaregiverFilterChange(caregiver) },
                                     label = { Text(caregiver) },
                                 )

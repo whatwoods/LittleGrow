@@ -32,16 +32,13 @@ import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SegmentedButton
@@ -49,7 +46,6 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -77,6 +73,13 @@ import com.littlegrow.app.data.HomeModule
 import com.littlegrow.app.data.ThemeMode
 import com.littlegrow.app.ui.BabyAvatar
 import com.littlegrow.app.ui.PhotoActionRow
+import com.littlegrow.app.ui.components.AdaptiveActionBar
+import com.littlegrow.app.ui.components.AdaptiveActionBarItem
+import com.littlegrow.app.ui.components.AdaptiveActionBarItemStyle
+import com.littlegrow.app.ui.components.ExpressiveElevatedButton as ElevatedButton
+import com.littlegrow.app.ui.components.ExpressiveFilterChip as FilterChip
+import com.littlegrow.app.ui.components.ExpressiveOutlinedButton as OutlinedButton
+import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
 import com.littlegrow.app.ui.dateFormatter
 import com.littlegrow.app.ui.rememberManagedPhotoAttachment
 import com.littlegrow.app.ui.theme.ThemePreviewColors
@@ -525,46 +528,53 @@ fun SettingsScreen(
                 )
                 
                 Text("手动导出与恢复", style = MaterialTheme.typography.labelLarge)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    ElevatedButton(
-                        enabled = !isExporting,
-                        onClick = {
-                            onClearExportMessage()
-                            csvExportLauncher.launch("littlegrow-${LocalDate.now()}-export.csv")
-                        },
-                    ) { Text("导出 CSV") }
-                    ElevatedButton(
-                        enabled = !isExporting,
-                        onClick = {
-                            onClearExportMessage()
-                            pdfExportLauncher.launch("littlegrow-${LocalDate.now()}-export.pdf")
-                        },
-                    ) { Text("导出 PDF") }
-                    ElevatedButton(
-                        enabled = !isExporting,
-                        onClick = {
-                            onClearExportMessage()
-                            backupExportLauncher.launch("littlegrow-${LocalDate.now()}.lgbackup")
-                        },
-                    ) { Text("完整备份") }
-                    OutlinedButton(
-                        enabled = !isExporting,
-                        onClick = {
-                            onClearExportMessage()
-                            csvImportLauncher.launch(arrayOf("text/*", "*/*"))
-                        },
-                    ) { Text("导入 CSV") }
-                    OutlinedButton(
-                        enabled = !isExporting,
-                        onClick = {
-                            onClearExportMessage()
-                            backupRestoreLauncher.launch(arrayOf("*/*"))
-                        },
-                    ) { Text("恢复备份") }
-                }
+                AdaptiveActionBar(
+                    items = listOf(
+                        AdaptiveActionBarItem(
+                            label = "导出 CSV",
+                            enabled = !isExporting,
+                            onClick = {
+                                onClearExportMessage()
+                                csvExportLauncher.launch("littlegrow-${LocalDate.now()}-export.csv")
+                            },
+                            style = AdaptiveActionBarItemStyle.FilledTonal,
+                        ),
+                        AdaptiveActionBarItem(
+                            label = "导出 PDF",
+                            enabled = !isExporting,
+                            onClick = {
+                                onClearExportMessage()
+                                pdfExportLauncher.launch("littlegrow-${LocalDate.now()}-export.pdf")
+                            },
+                            style = AdaptiveActionBarItemStyle.FilledTonal,
+                        ),
+                        AdaptiveActionBarItem(
+                            label = "完整备份",
+                            enabled = !isExporting,
+                            onClick = {
+                                onClearExportMessage()
+                                backupExportLauncher.launch("littlegrow-${LocalDate.now()}.lgbackup")
+                            },
+                            style = AdaptiveActionBarItemStyle.FilledTonal,
+                        ),
+                        AdaptiveActionBarItem(
+                            label = "导入 CSV",
+                            enabled = !isExporting,
+                            onClick = {
+                                onClearExportMessage()
+                                csvImportLauncher.launch(arrayOf("text/*", "*/*"))
+                            },
+                        ),
+                        AdaptiveActionBarItem(
+                            label = "恢复备份",
+                            enabled = !isExporting,
+                            onClick = {
+                                onClearExportMessage()
+                                backupRestoreLauncher.launch(arrayOf("*/*"))
+                            },
+                        ),
+                    ),
+                )
                 exportMessage?.let {
                     Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
                 }

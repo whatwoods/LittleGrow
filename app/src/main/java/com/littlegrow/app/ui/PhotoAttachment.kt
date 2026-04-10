@@ -7,16 +7,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +26,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalContext
 import com.littlegrow.app.media.PendingPhotoCapture
 import com.littlegrow.app.media.PhotoStore
+import com.littlegrow.app.ui.components.AdaptiveActionBar
+import com.littlegrow.app.ui.components.AdaptiveActionBarItem
+import com.littlegrow.app.ui.components.AdaptiveActionBarItemStyle
 
 data class ManagedPhotoAttachmentState(
     val photoPath: String?,
@@ -177,7 +176,6 @@ fun PhotoPreviewCard(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PhotoActionRow(
     title: String = "照片",
@@ -189,21 +187,30 @@ fun PhotoActionRow(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, style = MaterialTheme.typography.labelLarge)
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            OutlinedButton(onClick = onTakePhoto) {
-                Text("拍照")
-            }
-            OutlinedButton(onClick = onPickPhoto) {
-                Text("选图")
-            }
-            if (hasPhoto) {
-                TextButton(onClick = onRemovePhoto) {
-                    Text(removeLabel)
+        AdaptiveActionBar(
+            items = buildList {
+                add(
+                    AdaptiveActionBarItem(
+                        label = "拍照",
+                        onClick = onTakePhoto,
+                    ),
+                )
+                add(
+                    AdaptiveActionBarItem(
+                        label = "选图",
+                        onClick = onPickPhoto,
+                    ),
+                )
+                if (hasPhoto) {
+                    add(
+                        AdaptiveActionBarItem(
+                            label = removeLabel,
+                            onClick = onRemovePhoto,
+                            style = AdaptiveActionBarItemStyle.Text,
+                        ),
+                    )
                 }
-            }
-        }
+            },
+        )
     }
 }

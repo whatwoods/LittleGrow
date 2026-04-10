@@ -8,6 +8,7 @@ import android.widget.NumberPicker
 import android.widget.TextView
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -77,6 +78,7 @@ fun NativeDatePickerField(
         readOnly = true,
         singleLine = true,
         interactionSource = interactionSource,
+        shape = MaterialTheme.shapes.large,
     )
 }
 
@@ -136,6 +138,7 @@ fun NativeDateTimePickerField(
         readOnly = true,
         singleLine = true,
         interactionSource = interactionSource,
+        shape = MaterialTheme.shapes.large,
     )
 }
 
@@ -206,6 +209,7 @@ fun NativeDurationPickerField(
         readOnly = true,
         singleLine = true,
         interactionSource = interactionSource,
+        shape = MaterialTheme.shapes.large,
     )
 }
 

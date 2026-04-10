@@ -21,12 +21,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -45,9 +42,12 @@ import com.littlegrow.app.data.BabyProfile
 import com.littlegrow.app.data.Gender
 import com.littlegrow.app.ui.BabyAvatar
 import com.littlegrow.app.ui.PhotoActionRow
-import com.littlegrow.app.ui.dateFormatter
 import com.littlegrow.app.ui.NativeDatePickerField
+import com.littlegrow.app.ui.components.ExpressiveButton as Button
+import com.littlegrow.app.ui.components.ExpressiveFilterChip as FilterChip
+import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
 import com.littlegrow.app.ui.rememberManagedPhotoAttachment
+import com.littlegrow.app.ui.dateFormatter
 import java.time.LocalDate
 
 private data class OnboardingPage(

@@ -88,11 +88,14 @@ fun OnboardingScreen(
     val pagerState = rememberPagerState(pageCount = { TOTAL_PAGES })
     val scope = rememberCoroutineScope()
     val isLastPage = pagerState.currentPage == TOTAL_PAGES - 1
+    val actionsEnabled = !pagerState.isScrollInProgress
 
     var name by rememberSaveable { mutableStateOf("") }
     var birthday by rememberSaveable { mutableStateOf(LocalDate.now().format(dateFormatter)) }
     var gender by rememberSaveable { mutableStateOf(Gender.BOY) }
     var errorText by rememberSaveable { mutableStateOf<String?>(null) }
+    var isPageTransitioning by rememberSaveable { mutableStateOf(false) }
+    var isCompleting by rememberSaveable { mutableStateOf(false) }
     var retainedAvatarPath by rememberSaveable { mutableStateOf<String?>(null) }
     val avatarAttachment = rememberManagedPhotoAttachment(
         initialPhotoPath = null,
@@ -111,7 +114,24 @@ fun OnboardingScreen(
         }
     }
 
+    fun navigateToPage(page: Int) {
+        if (isPageTransitioning || pagerState.isScrollInProgress) {
+            return
+        }
+        isPageTransitioning = true
+        scope.launch {
+            try {
+                pagerState.animateScrollToPage(page)
+            } finally {
+                isPageTransitioning = false
+            }
+        }
+    }
+
     fun tryComplete() {
+        if (isCompleting) {
+            return
+        }
         val trimmedName = name.trim()
         val parsedBirthday = runCatching {
             LocalDate.parse(birthday.trim(), dateFormatter)
@@ -126,6 +146,7 @@ fun OnboardingScreen(
             return
         }
         errorText = null
+        isCompleting = true
         avatarAttachment.commitChanges()
         retainedAvatarPath = avatarAttachment.photoPath
         onComplete(
@@ -153,9 +174,15 @@ fun OnboardingScreen(
             horizontalArrangement = Arrangement.End,
         ) {
             if (!isLastPage) {
-                TextButton(onClick = {
-                    scope.launch { pagerState.animateScrollToPage(PROFILE_PAGE_INDEX) }
-                }) {
+                TextButton(
+                    enabled = actionsEnabled && !isPageTransitioning,
+                    onClick = {
+                        if (!actionsEnabled || isPageTransitioning) {
+                            return@TextButton
+                        }
+                        navigateToPage(PROFILE_PAGE_INDEX)
+                    },
+                ) {
                     Text("跳过")
                 }
             }
@@ -229,13 +256,15 @@ fun OnboardingScreen(
 
             // Action button
             Button(
+                enabled = actionsEnabled && !isPageTransitioning && !isCompleting,
                 onClick = {
                     if (isLastPage) {
                         tryComplete()
                     } else {
-                        scope.launch {
-                            pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                        if (!actionsEnabled || isPageTransitioning) {
+                            return@Button
                         }
+                        navigateToPage(pagerState.currentPage + 1)
                     }
                 },
                 modifier = Modifier

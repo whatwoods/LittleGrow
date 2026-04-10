@@ -4,8 +4,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,7 +31,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -51,7 +48,6 @@ import com.littlegrow.app.ui.PhotoActionRow
 import com.littlegrow.app.ui.dateFormatter
 import com.littlegrow.app.ui.NativeDatePickerField
 import com.littlegrow.app.ui.rememberManagedPhotoAttachment
-import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 private data class OnboardingPage(
@@ -85,16 +81,13 @@ private const val PROFILE_PAGE_INDEX = 3
 fun OnboardingScreen(
     onComplete: (BabyProfile) -> Unit,
 ) {
-    val pagerState = rememberPagerState(pageCount = { TOTAL_PAGES })
-    val scope = rememberCoroutineScope()
-    val isLastPage = pagerState.currentPage == TOTAL_PAGES - 1
-    val actionsEnabled = !pagerState.isScrollInProgress
+    var currentPage by rememberSaveable { mutableStateOf(0) }
+    val isLastPage = currentPage == TOTAL_PAGES - 1
 
     var name by rememberSaveable { mutableStateOf("") }
     var birthday by rememberSaveable { mutableStateOf(LocalDate.now().format(dateFormatter)) }
     var gender by rememberSaveable { mutableStateOf(Gender.BOY) }
     var errorText by rememberSaveable { mutableStateOf<String?>(null) }
-    var isPageTransitioning by rememberSaveable { mutableStateOf(false) }
     var isCompleting by rememberSaveable { mutableStateOf(false) }
     var retainedAvatarPath by rememberSaveable { mutableStateOf<String?>(null) }
     val avatarAttachment = rememberManagedPhotoAttachment(
@@ -115,17 +108,7 @@ fun OnboardingScreen(
     }
 
     fun navigateToPage(page: Int) {
-        if (isPageTransitioning || pagerState.isScrollInProgress) {
-            return
-        }
-        isPageTransitioning = true
-        scope.launch {
-            try {
-                pagerState.animateScrollToPage(page)
-            } finally {
-                isPageTransitioning = false
-            }
-        }
+        currentPage = page.coerceIn(0, TOTAL_PAGES - 1)
     }
 
     fun tryComplete() {
@@ -175,9 +158,9 @@ fun OnboardingScreen(
         ) {
             if (!isLastPage) {
                 TextButton(
-                    enabled = actionsEnabled && !isPageTransitioning,
+                    enabled = !isCompleting,
                     onClick = {
-                        if (!actionsEnabled || isPageTransitioning) {
+                        if (isCompleting) {
                             return@TextButton
                         }
                         navigateToPage(PROFILE_PAGE_INDEX)
@@ -189,12 +172,11 @@ fun OnboardingScreen(
         }
 
         // Pager content
-        HorizontalPager(
-            state = pagerState,
+        Box(
             modifier = Modifier.weight(1f),
-        ) { page ->
-            if (page < introPages.size) {
-                IntroPageContent(introPages[page])
+        ) {
+            if (currentPage < introPages.size) {
+                IntroPageContent(introPages[currentPage])
             } else {
                 ProfileSetupPage(
                     name = name,
@@ -226,7 +208,7 @@ fun OnboardingScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 repeat(TOTAL_PAGES) { index ->
-                    val isSelected = pagerState.currentPage == index
+                    val isSelected = currentPage == index
                     val width by animateDpAsState(
                         targetValue = if (isSelected) 24.dp else 8.dp,
                         animationSpec = tween(300),
@@ -256,15 +238,15 @@ fun OnboardingScreen(
 
             // Action button
             Button(
-                enabled = actionsEnabled && !isPageTransitioning && !isCompleting,
+                enabled = !isCompleting,
                 onClick = {
                     if (isLastPage) {
                         tryComplete()
                     } else {
-                        if (!actionsEnabled || isPageTransitioning) {
+                        if (isCompleting) {
                             return@Button
                         }
-                        navigateToPage(pagerState.currentPage + 1)
+                        navigateToPage(currentPage + 1)
                     }
                 },
                 modifier = Modifier

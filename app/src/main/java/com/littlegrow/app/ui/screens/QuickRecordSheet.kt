@@ -33,10 +33,11 @@ fun QuickRecordSheet(
     feedingFormDefaults: FeedingFormDefaults,
     caregivers: List<String>,
     currentCaregiver: String,
+    initialSelectedTab: RecordTab? = null,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var selectedTab by rememberSaveable { mutableStateOf<RecordTab?>(null) }
+    var selectedTab by rememberSaveable { mutableStateOf<RecordTab?>(initialSelectedTab) }
     var dismissDraft by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     LaunchedEffect(selectedTab) {

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
@@ -50,7 +50,6 @@ import com.littlegrow.app.data.VaccineReactionDraft
 import com.littlegrow.app.data.WhoGrowthStandards
 import com.littlegrow.app.ui.NativeDatePickerField
 import com.littlegrow.app.ui.components.ExpressiveFilterChip as FilterChip
-import com.littlegrow.app.ui.components.ExpressiveFloatingActionButton as FloatingActionButton
 import com.littlegrow.app.ui.components.ExpressiveOutlinedButton as OutlinedButton
 import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
 import com.littlegrow.app.ui.dateFormatter
@@ -204,21 +203,6 @@ fun GrowthScreen(
                     }
                 }
             }
-        }
-
-        FloatingActionButton(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(
-                    end = 20.dp,
-                    bottom = contentPadding.calculateBottomPadding() + 20.dp,
-                ),
-            onClick = {
-                editingGrowth = null
-                showDialog = true
-            },
-        ) {
-            androidx.compose.material3.Icon(Icons.Rounded.Add, contentDescription = "添加生长记录")
         }
     }
 
@@ -467,7 +451,7 @@ private fun GrowthChartCard(
                 Canvas(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(260.dp),
+                        .aspectRatio(16f / 10f),
                 ) {
                     val width = size.width
                     val height = size.height
@@ -671,7 +655,7 @@ private fun VaccineReactionDialog(
 }
 
 @Composable
-private fun AddGrowthDialog(
+fun AddGrowthDialog(
     initial: GrowthEntity?,
     onDismiss: () -> Unit,
     onSubmit: (GrowthDraft) -> Unit,
@@ -843,3 +827,4 @@ private fun growthVelocityText(
     }
     return listOfNotNull(weightText, heightText).firstOrNull()
 }
+

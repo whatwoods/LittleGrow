@@ -1,4 +1,6 @@
-package com.littlegrow.app.ui.screens
+import sys
+
+timeline_code = '''package com.littlegrow.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
@@ -556,3 +558,7 @@ fun AddMilestoneDialog(
         },
     )
 }
+'''
+
+with open('app/src/main/java/com/littlegrow/app/ui/screens/TimelineScreen.kt', 'w', encoding='utf-8') as f:
+    f.write(timeline_code)

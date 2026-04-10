@@ -20,7 +20,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -135,7 +135,7 @@ fun RecordsScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.padding(top = contentPadding.calculateTopPadding())) {
-            PrimaryTabRow(selectedTabIndex = orderedTabs.indexOf(selectedTab).coerceAtLeast(0)) {
+            ScrollableTabRow(selectedTabIndex = orderedTabs.indexOf(selectedTab).coerceAtLeast(0), edgePadding = 16.dp) {
                 orderedTabs.forEach { tab ->
                     Tab(
                         selected = selectedTab == tab,
@@ -360,8 +360,7 @@ private fun BreastfeedingTimerCard(
     LaunchedEffect(timerState.startedAtEpochMillis) {
         if (!timerState.isRunning) return@LaunchedEffect
         while (true) {
-            nowMs = System.currentTimeMillis()
-            delay(1_000)
+            nowMs = androidx.compose.runtime.withFrameMillis { it }
         }
     }
     ElevatedCard {

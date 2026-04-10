@@ -1,4 +1,6 @@
-package com.littlegrow.app.ui.screens
+import sys
+
+settings_code = '''package com.littlegrow.app.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -18,7 +20,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -62,7 +63,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -768,7 +768,7 @@ private fun ThemePreviewStrip(preview: ThemePreviewColors) {
                 Box(modifier = Modifier.size(width = 40.dp, height = 8.dp).background(preview.primary, RoundedCornerShape(4.dp)))
                 ThemeColorDot(preview.primary)
             }
-            Box(modifier = Modifier.fillMaxWidth().height(24.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp)))
+            Box(modifier = Modifier.fillMaxWidth().height(24.dp).background(preview.surfaceVariant, RoundedCornerShape(4.dp)))
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 ThemeColorBar(color = preview.secondary.copy(alpha = 0.5f), modifier = Modifier.weight(1f))
                 ThemeColorBar(color = preview.tertiary.copy(alpha = 0.5f), modifier = Modifier.weight(1f))
@@ -806,3 +806,7 @@ private fun themeStyleDescription(theme: AppTheme): String = when (theme) {
     AppTheme.MINT -> "清透薄荷色，层次轻盈。"
     AppTheme.LAVENDER -> "灰紫雾面色，安静沉稳。"
 }
+'''
+
+with open('app/src/main/java/com/littlegrow/app/ui/screens/SettingsScreen.kt', 'w', encoding='utf-8') as f:
+    f.write(settings_code)

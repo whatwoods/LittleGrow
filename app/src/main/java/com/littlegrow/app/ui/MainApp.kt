@@ -3,6 +3,14 @@ package com.littlegrow.app
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoGraph
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.BabyChangingStation
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DirectionsRun
+import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.LocalDrink
+import androidx.compose.material.icons.rounded.MedicalServices
+import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Settings
@@ -15,10 +23,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.graphics.Color
+import com.littlegrow.app.ui.components.GlassSurface
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButtonMenu
+import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ToggleFloatingActionButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -44,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -68,6 +83,12 @@ import com.littlegrow.app.ui.screens.StageReportSheet
 import com.littlegrow.app.ui.screens.TimelineScreen
 import com.littlegrow.app.ui.components.ExpressiveFloatingActionButton as FloatingActionButton
 import kotlinx.coroutines.launch
+
+private data class FabMenuItem(
+    val label: String,
+    val icon: ImageVector,
+    val onClick: () -> Unit,
+)
 
 private data class TopLevelDestination(
     val destination: AppDestination,
@@ -148,9 +169,17 @@ fun LittleGrowApp(
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val launchState by viewModel.launchState.collectAsStateWithLifecycle()
     var showQuickRecordSheet by rememberSaveable { mutableStateOf(false) }
+    var quickRecordInitialTab by rememberSaveable { mutableStateOf<RecordTab?>(null) }
+    var showAddGrowthDialog by rememberSaveable { mutableStateOf(false) }
+    var showAddMilestoneDialog by rememberSaveable { mutableStateOf(false) }
     var showHandoverSheet by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val showQuickRecordAction = currentRoute == AppDestination.HOME.route || currentRoute == AppDestination.RECORDS.route
+
+    fun onQuickRecord(tab: RecordTab) {
+        quickRecordInitialTab = tab
+        showQuickRecordSheet = true
+    }
 
     fun navigateToTopLevel(destination: AppDestination) {
         navController.navigate(destination.route) {
@@ -207,7 +236,33 @@ fun LittleGrowApp(
             feedingFormDefaults = feedingFormDefaults,
             caregivers = caregivers,
             currentCaregiver = currentCaregiver,
-            onDismiss = { showQuickRecordSheet = false },
+            initialSelectedTab = quickRecordInitialTab,
+            onDismiss = {
+                showQuickRecordSheet = false
+                quickRecordInitialTab = null
+            },
+        )
+    }
+
+    if (showAddGrowthDialog) {
+        com.littlegrow.app.ui.screens.AddGrowthDialog(
+            initial = null,
+            onDismiss = { showAddGrowthDialog = false },
+            onSubmit = { draft ->
+                viewModel.addGrowth(draft)
+                showAddGrowthDialog = false
+            },
+        )
+    }
+
+    if (showAddMilestoneDialog) {
+        com.littlegrow.app.ui.screens.AddMilestoneDialog(
+            initial = null,
+            onDismiss = { showAddMilestoneDialog = false },
+            onSubmit = { draft ->
+                viewModel.addMilestone(draft)
+                showAddMilestoneDialog = false
+            },
         )
     }
 
@@ -233,14 +288,63 @@ fun LittleGrowApp(
         },
         floatingActionButton = {
             if (!useNavigationRail) {
-                FloatingActionButton(
-                    onClick = { showQuickRecordSheet = true },
+                var fabExpanded by rememberSaveable { mutableStateOf(false) }
+
+                val menuItems: List<FabMenuItem> = when (currentRoute) {
+                    AppDestination.HOME.route,
+                    AppDestination.RECORDS.route -> listOf(
+                        FabMenuItem("记录喂奶", Icons.Rounded.LocalDrink) { onQuickRecord(RecordTab.FEEDING) },
+                        FabMenuItem("记录睡眠", Icons.Rounded.Bedtime) { onQuickRecord(RecordTab.SLEEP) },
+                        FabMenuItem("记录尿布", Icons.Rounded.BabyChangingStation) { onQuickRecord(RecordTab.DIAPER) },
+                        FabMenuItem("健康记录", Icons.Rounded.MedicalServices) { onQuickRecord(RecordTab.MEDICAL) },
+                        FabMenuItem("记录活动", Icons.Rounded.DirectionsRun) { onQuickRecord(RecordTab.ACTIVITY) },
+                    )
+                    AppDestination.GROWTH.route -> listOf(
+                        FabMenuItem("添加生长记录", Icons.Rounded.Straighten) { showAddGrowthDialog = true },
+                    )
+                    AppDestination.TIMELINE.route -> listOf(
+                        FabMenuItem("添加里程碑", Icons.Rounded.EmojiEvents) { showAddMilestoneDialog = true },
+                    )
+                    else -> emptyList()
+                }
+
+                val fabVisible = menuItems.isNotEmpty()
+
+                LaunchedEffect(currentRoute) { fabExpanded = false }
+
+                FloatingActionButtonMenu(
                     modifier = Modifier.animateFloatingActionButton(
-                        visible = showQuickRecordAction,
+                        visible = fabVisible,
                         alignment = Alignment.BottomEnd,
                     ),
+                    expanded = fabExpanded,
+                    button = {
+                        ToggleFloatingActionButton(
+                            checked = fabExpanded,
+                            onCheckedChange = { fabExpanded = !fabExpanded },
+                        ) {
+                            val iconRotation by animateFloatAsState(
+                                targetValue = if (fabExpanded) 45f else 0f,
+                                label = "fab_rotation"
+                            )
+                            Icon(
+                                imageVector = if (fabExpanded) Icons.Rounded.Add else Icons.Rounded.Add,
+                                contentDescription = if (fabExpanded) "收起" else "添加",
+                                modifier = Modifier.graphicsLayer(rotationZ = iconRotation)
+                            )
+                        }
+                    }
                 ) {
-                    Icon(Icons.Rounded.Add, contentDescription = "添加记录")
+                    menuItems.forEach { item ->
+                        FloatingActionButtonMenuItem(
+                            onClick = {
+                                fabExpanded = false
+                                item.onClick()
+                            },
+                            icon = { Icon(item.icon, contentDescription = null) },
+                            text = { Text(item.label) }
+                        )
+                    }
                 }
             }
         },
@@ -473,16 +577,19 @@ private fun TopLevelShortNavigationBar(
     currentRoute: String,
     onNavigate: (AppDestination) -> Unit,
 ) {
-    ShortNavigationBar(
-        arrangement = ShortNavigationBarArrangement.EqualWeight,
-    ) {
-        topLevelDestinations.forEach { destination ->
-            ShortNavigationBarItem(
-                selected = currentRoute == destination.destination.route,
-                onClick = { onNavigate(destination.destination) },
-                icon = { Icon(destination.icon, destination.label) },
-                label = { Text(destination.label) },
-            )
+    GlassSurface {
+        ShortNavigationBar(
+            arrangement = ShortNavigationBarArrangement.EqualWeight,
+            containerColor = Color.Transparent
+        ) {
+            topLevelDestinations.forEach { destination ->
+                ShortNavigationBarItem(
+                    selected = currentRoute == destination.destination.route,
+                    onClick = { onNavigate(destination.destination) },
+                    icon = { Icon(destination.icon, destination.label) },
+                    label = { Text(destination.label) },
+                )
+            }
         }
     }
 }

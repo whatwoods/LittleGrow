@@ -50,6 +50,10 @@ import com.littlegrow.app.ui.formatMinutes
 import com.littlegrow.app.ui.components.ExpressiveFilledTonalButton as FilledTonalButton
 import com.littlegrow.app.ui.components.ExpressiveFilterChip as FilterChip
 import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
+import com.littlegrow.app.ui.components.EmptyState
+import com.littlegrow.app.ui.components.GlassSurface
+import com.littlegrow.app.ui.theme.Spacing
+import com.littlegrow.app.ui.theme.ContentAlpha
 import com.littlegrow.app.ui.theme.softShadow
 import java.time.Duration
 import java.time.temporal.ChronoUnit
@@ -77,29 +81,32 @@ fun HomeScreen(
 ) {
     LazyColumn(
         contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 24.dp,
+            start = Spacing.lg,
+            end = Spacing.lg,
+            top = contentPadding.calculateTopPadding() + Spacing.lg,
+            bottom = contentPadding.calculateBottomPadding() + Spacing.xl,
         ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
     ) {
         item {
-            ElevatedCard(
+            GlassSurface(
                 modifier = Modifier.softShadow(),
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                ),
+                alpha = 0.55f
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(20.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
                 ) {
                     val avatarPath = summary.profile?.avatarPath
-                    val babyName = summary.profile?.name ?: "宝"
+                    val babyName = summary.profile?.name ?: "宝贝"
+                    val greeting = when (java.time.LocalTime.now().hour) {
+                        in 5..11 -> "早上好"
+                        in 12..17 -> "下午好"
+                        else -> "晚上好"
+                    }
                     if (avatarPath.isNullOrBlank()) {
                         Box(
                             modifier = Modifier
@@ -125,7 +132,7 @@ fun HomeScreen(
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = summary.profile?.name ?: "欢迎来到长呀长",
+                            text = summary.profile?.name?.let { "$it， $greeting" } ?: "欢迎来到长呀长",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                         )
@@ -133,7 +140,7 @@ fun HomeScreen(
                             text = summary.ageText,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Text("把每天的成长留在本地")
+                        Text("记录宝宝今天的成长吧")
                     }
                 }
             }
@@ -297,28 +304,20 @@ private fun QuickActionGrid(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text("快捷操作", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Row(
+            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+            androidx.compose.foundation.layout.FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenRecords(RecordTab.FEEDING) } }, modifier = Modifier.weight(1f)) { Text("记喂奶") }
-                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenRecords(RecordTab.SLEEP) } }, modifier = Modifier.weight(1f)) { Text("记睡眠") }
-                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenRecords(RecordTab.DIAPER) } }, modifier = Modifier.weight(1f)) { Text("记尿布") }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenRecords(RecordTab.MEDICAL) } }, modifier = Modifier.weight(1f)) { Text("健康") }
-                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenGrowth() } }, modifier = Modifier.weight(1f)) { Text("生长") }
-                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenMedicalSummary() } }, modifier = Modifier.weight(1f)) { Text("就医") }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenTimeline() } }, modifier = Modifier.weight(1f)) { Text("里程碑") }
-                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenSettings() } }, modifier = Modifier.weight(1f)) { Text("设置") }
+                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenRecords(RecordTab.FEEDING) } }) { Text("记喂奶") }
+                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenRecords(RecordTab.SLEEP) } }) { Text("记睡眠") }
+                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenRecords(RecordTab.DIAPER) } }) { Text("记尿布") }
+                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenRecords(RecordTab.MEDICAL) } }) { Text("健康") }
+                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenGrowth() } }) { Text("生长") }
+                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenMedicalSummary() } }) { Text("就医") }
+                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenTimeline() } }) { Text("里程碑") }
+                FilledTonalButton(onClick = { triggerHapticAndRun { onOpenSettings() } }) { Text("设置") }
             }
         }
     }
@@ -337,35 +336,24 @@ private fun TodaySummarySection(summary: HomeSummary) {
         ) {
             SummaryCard(
                 modifier = Modifier.weight(1f),
-                title = "今日喂养",
-                value = "${summary.todayFeedings} 次",
-                badge = feedingRange?.let {
-                    ReferenceBadgeData(
-                        text = summary.todayFeedingReference ?: "参考 ${it.min}-${it.max} ${it.unit}",
-                        color = referenceColor(summary.todayFeedings.toDouble(), it.min, it.max),
-                    )
-                },
+                title = "喂养",
+                value = "${summary.todayFeedings}",
             )
             SummaryCard(
                 modifier = Modifier.weight(1f),
-                title = "今日排泄",
-                value = "${summary.todayDiapers} 次",
-                badge = null,
+                title = "排泄",
+                value = "${summary.todayDiapers}",
+            )
+            SummaryCard(
+                modifier = Modifier.weight(1f),
+                title = "睡眠(分)",
+                value = "${summary.todaySleepMinutes}",
             )
         }
-        SummaryCard(
-            title = "今日睡眠",
-            value = summary.todaySleepMinutes.formatMinutes(),
-            badge = sleepRange?.let {
-                ReferenceBadgeData(
-                    text = summary.todaySleepReference ?: "参考 ${it.min}-${it.max} ${it.unit}",
-                    color = referenceColor(summary.todaySleepMinutes / 60.0, it.min, it.max),
-                )
-            },
-            subtitle = summary.latestGrowth?.let {
-                "最新生长：${it.date.formatDate()} 体重 ${it.weightKg.formatMetric(GrowthMetric.WEIGHT)}"
-            } ?: "还没有生长记录。",
-        )
+        val latestGrow = summary.latestGrowth?.let {
+            "${it.date.formatDate()} 体重 ${it.weightKg.formatMetric(GrowthMetric.WEIGHT)}"
+        } ?: "还没有生长记录。"
+        Text(text = "最新生长：$latestGrow", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -560,21 +548,18 @@ private fun EmptyRecordCard(text: String) {
         ),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Today,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-            )
-            Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        EmptyState(
+            title = "暂无记录",
+            description = text,
+            illustration = {
+                Icon(
+                    imageVector = Icons.Rounded.Today,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+            }
+        )
     }
 }
 
@@ -591,20 +576,20 @@ private fun SummaryCard(
     badge: ReferenceBadgeData? = null,
     subtitle: String? = null,
 ) {
-    ElevatedCard(modifier = modifier) {
+    GlassSurface(modifier = modifier, alpha = 0.65f) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = ContentAlpha.medium))
             Text(value, style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             badge?.let {
                 ReferenceBadgeComposable(text = it.text, color = it.color)
             }
             subtitle?.let {
-                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = ContentAlpha.medium))
             }
         }
     }

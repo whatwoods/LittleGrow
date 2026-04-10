@@ -2,7 +2,9 @@ package com.littlegrow.app.ui.screens
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,6 +36,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
@@ -165,6 +171,7 @@ fun OnboardingScreen(
                         }
                         navigateToPage(PROFILE_PAGE_INDEX)
                     },
+                    modifier = Modifier.semantics { contentDescription = "跳过引导，直接进入应用" }
                 ) {
                     Text("跳过")
                 }
@@ -175,22 +182,32 @@ fun OnboardingScreen(
         Box(
             modifier = Modifier.weight(1f),
         ) {
-            if (currentPage < introPages.size) {
-                IntroPageContent(introPages[currentPage])
-            } else {
-                ProfileSetupPage(
-                    name = name,
-                    birthday = birthday,
-                    gender = gender,
-                    errorText = errorText,
-                    avatarPath = avatarAttachment.photoPath,
-                    onNameChange = { name = it; errorText = null },
-                    onBirthdayChange = { birthday = it; errorText = null },
-                    onGenderChange = { gender = it },
-                    onTakeAvatar = avatarAttachment.onTakePhoto,
-                    onPickAvatar = avatarAttachment.onPickPhoto,
-                    onRemoveAvatar = avatarAttachment.onRemovePhoto,
-                )
+            androidx.compose.animation.AnimatedContent(
+                targetState = currentPage,
+                transitionSpec = {
+                    (androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInHorizontally { width -> width }).togetherWith(
+                        androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutHorizontally { width -> -width }
+                    )
+                },
+                label = "page_transition",
+            ) { page ->
+                if (page < introPages.size) {
+                    IntroPageContent(introPages[page])
+                } else {
+                    ProfileSetupPage(
+                        name = name,
+                        birthday = birthday,
+                        gender = gender,
+                        errorText = errorText,
+                        avatarPath = avatarAttachment.photoPath,
+                        onNameChange = { name = it; errorText = null },
+                        onBirthdayChange = { birthday = it; errorText = null },
+                        onGenderChange = { gender = it },
+                        onTakeAvatar = avatarAttachment.onTakePhoto,
+                        onPickAvatar = avatarAttachment.onPickPhoto,
+                        onRemoveAvatar = avatarAttachment.onRemovePhoto,
+                    )
+                }
             }
         }
 
@@ -211,7 +228,7 @@ fun OnboardingScreen(
                     val isSelected = currentPage == index
                     val width by animateDpAsState(
                         targetValue = if (isSelected) 24.dp else 8.dp,
-                        animationSpec = tween(300),
+                        animationSpec = spring(dampingRatio = 0.7f),
                         label = "indicator_width",
                     )
                     val color by animateColorAsState(
@@ -220,7 +237,7 @@ fun OnboardingScreen(
                         } else {
                             MaterialTheme.colorScheme.surfaceVariant
                         },
-                        animationSpec = tween(300),
+                        animationSpec = spring(dampingRatio = 0.7f),
                         label = "indicator_color",
                     )
                     Box(
@@ -269,14 +286,21 @@ private fun IntroPageContent(page: OnboardingPage) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 32.dp),
+            .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(
-            text = page.emoji,
-            fontSize = 80.sp,
-        )
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = page.emoji,
+                fontSize = 56.sp,
+            )
+        }
         Spacer(modifier = Modifier.height(32.dp))
         Text(
             text = page.title,
@@ -314,11 +338,15 @@ private fun ProfileSetupPage(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 32.dp),
+            .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        BabyAvatar(
+        Column(
+            modifier = Modifier.widthIn(max = 480.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            BabyAvatar(
             avatarPath = avatarPath,
             contentDescription = "宝宝头像",
             modifier = Modifier
@@ -399,6 +427,7 @@ private fun ProfileSetupPage(
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
             )
+        }
         }
     }
 }

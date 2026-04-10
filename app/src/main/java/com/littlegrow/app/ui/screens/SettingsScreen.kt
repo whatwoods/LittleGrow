@@ -10,9 +10,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -25,19 +25,37 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.Smartphone
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -58,7 +76,6 @@ import com.littlegrow.app.data.Gender
 import com.littlegrow.app.data.HomeModule
 import com.littlegrow.app.data.ThemeMode
 import com.littlegrow.app.ui.BabyAvatar
-import com.littlegrow.app.ui.NativeDatePickerField
 import com.littlegrow.app.ui.PhotoActionRow
 import com.littlegrow.app.ui.dateFormatter
 import com.littlegrow.app.ui.rememberManagedPhotoAttachment
@@ -66,7 +83,7 @@ import com.littlegrow.app.ui.theme.ThemePreviewColors
 import com.littlegrow.app.ui.theme.previewColors
 import java.time.LocalDate
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     profile: BabyProfile?,
@@ -157,6 +174,8 @@ fun SettingsScreen(
     var birthday by rememberSaveable(profile?.birthday) {
         mutableStateOf(profile?.birthday?.format(dateFormatter) ?: LocalDate.now().format(dateFormatter))
     }
+    var showDatePicker by remember { mutableStateOf(false) }
+    
     var gender by rememberSaveable(profile?.gender) { mutableStateOf(profile?.gender ?: Gender.GIRL) }
     var caregiverText by rememberSaveable(caregivers) { mutableStateOf(caregivers.joinToString("、")) }
     var scheduleStartText by rememberSaveable(darkModeStartHour) { mutableStateOf(darkModeStartHour.toString()) }
@@ -179,357 +198,266 @@ fun SettingsScreen(
             }
         }
     }
+    
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = runCatching { 
+                LocalDate.parse(birthday, dateFormatter).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+            }.getOrNull()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val instant = java.time.Instant.ofEpochMilli(millis)
+                        val localDate = java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.of("UTC")).toLocalDate()
+                        birthday = localDate.format(dateFormatter)
+                    }
+                    showDatePicker = false
+                }) {
+                    Text("确定")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("取消") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 
     LazyColumn(
         contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
             top = contentPadding.calculateTopPadding() + 16.dp,
             bottom = contentPadding.calculateBottomPadding() + 24.dp,
         ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            ElevatedCard {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text("设置", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text(
-                        "这里统一管理提醒、主题、备份恢复、看护人和首页显示模块。",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            Text(
+                "设置",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
         item {
-            ElevatedCard {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text("导出、备份与恢复", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        OutlinedButton(
-                            enabled = !isExporting,
-                            onClick = {
-                                onClearExportMessage()
-                                csvExportLauncher.launch("littlegrow-${LocalDate.now()}-export.csv")
-                            },
-                        ) {
-                            Text("导出 CSV")
-                        }
-                        OutlinedButton(
-                            enabled = !isExporting,
-                            onClick = {
-                                onClearExportMessage()
-                                pdfExportLauncher.launch("littlegrow-${LocalDate.now()}-export.pdf")
-                            },
-                        ) {
-                            Text("导出 PDF")
-                        }
-                        OutlinedButton(
-                            enabled = !isExporting,
-                            onClick = {
-                                onClearExportMessage()
-                                backupExportLauncher.launch("littlegrow-${LocalDate.now()}.lgbackup")
-                            },
-                        ) {
-                            Text("完整备份")
-                        }
-                        OutlinedButton(
-                            enabled = !isExporting,
-                            onClick = {
-                                onClearExportMessage()
-                                backupRestoreLauncher.launch(arrayOf("*/*"))
-                            },
-                        ) {
-                            Text("恢复备份")
-                        }
-                        OutlinedButton(
-                            enabled = !isExporting,
-                            onClick = {
-                                onClearExportMessage()
-                                csvImportLauncher.launch(arrayOf("text/*", "*/*"))
-                            },
-                        ) {
-                            Text("导入 CSV")
-                        }
-                    }
-                    Text(
-                        "完整备份会打包数据和照片；CSV 导入是增量合并，不会直接覆盖现有记录。",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall,
+            SettingsSectionTitle("提醒与通知")
+            NotificationListItem(
+                title = "疫苗接种提醒",
+                checked = vaccineRemindersEnabled,
+                onCheckedChange = { enabled ->
+                    handleNotificationSwitch(
+                        enabled = enabled,
+                        granted = notificationPermissionGranted,
+                        launcher = vaccinePermissionLauncher::launch,
+                        onEnable = { onVaccineRemindersChange(true) },
+                        onDisable = { onVaccineRemindersChange(false) },
                     )
-                    exportMessage?.let {
-                        Text(it, color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
+                },
+            )
+            NotificationListItem(
+                title = "智能异常提醒",
+                checked = anomalyRemindersEnabled,
+                onCheckedChange = { enabled ->
+                    handleNotificationSwitch(
+                        enabled = enabled,
+                        granted = notificationPermissionGranted,
+                        launcher = anomalyPermissionLauncher::launch,
+                        onEnable = { onAnomalyRemindersChange(true) },
+                        onDisable = { onAnomalyRemindersChange(false) },
+                    )
+                },
+            )
+            NotificationListItem(
+                title = "大便频次提醒",
+                checked = diaperRemindersEnabled,
+                onCheckedChange = { enabled ->
+                    handleNotificationSwitch(
+                        enabled = enabled,
+                        granted = notificationPermissionGranted,
+                        launcher = diaperPermissionLauncher::launch,
+                        onEnable = { onDiaperRemindersChange(true) },
+                        onDisable = { onDiaperRemindersChange(false) },
+                    )
+                },
+            )
+            NotificationListItem(
+                title = "通知栏快捷记录",
+                checked = quickActionNotificationsEnabled,
+                onCheckedChange = { enabled ->
+                    handleNotificationSwitch(
+                        enabled = enabled,
+                        granted = notificationPermissionGranted,
+                        launcher = quickPermissionLauncher::launch,
+                        onEnable = { onQuickActionNotificationsChange(true) },
+                        onDisable = { onQuickActionNotificationsChange(false) },
+                    )
+                },
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider()
         }
 
         item {
-            ElevatedCard {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+            SettingsSectionTitle("宝宝资料")
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Text("自动备份与工具", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "自动备份会把最近一次完整快照写入系统下载目录；就医摘要可直接复制或分享。",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    BabyAvatar(
+                        avatarPath = avatarAttachment.photoPath,
+                        contentDescription = "宝宝头像",
+                        modifier = Modifier.size(72.dp),
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f),
+                        borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
                     )
-                    FilterChipSection(
-                        title = "自动备份频率",
-                        entries = BackupFrequency.entries,
-                        selected = autoBackupFrequency,
-                        label = { it.label },
-                        onSelect = onAutoBackupFrequencyChange,
-                    )
-                    ElevatedButton(onClick = onOpenMedicalSummary) {
-                        Text("打开就医摘要")
-                    }
-                }
-            }
-        }
-
-        item {
-            ElevatedCard {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text("提醒管理", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    NotificationSwitchRow(
-                        title = "疫苗接种提醒",
-                        checked = vaccineRemindersEnabled,
-                        onCheckedChange = { enabled ->
-                            handleNotificationSwitch(
-                                enabled = enabled,
-                                granted = notificationPermissionGranted,
-                                launcher = vaccinePermissionLauncher::launch,
-                                onEnable = { onVaccineRemindersChange(true) },
-                                onDisable = { onVaccineRemindersChange(false) },
-                            )
-                        },
-                    )
-                    NotificationSwitchRow(
-                        title = "通知栏快捷记录",
-                        checked = quickActionNotificationsEnabled,
-                        onCheckedChange = { enabled ->
-                            handleNotificationSwitch(
-                                enabled = enabled,
-                                granted = notificationPermissionGranted,
-                                launcher = quickPermissionLauncher::launch,
-                                onEnable = { onQuickActionNotificationsChange(true) },
-                                onDisable = { onQuickActionNotificationsChange(false) },
-                            )
-                        },
-                    )
-                    NotificationSwitchRow(
-                        title = "智能异常提醒",
-                        checked = anomalyRemindersEnabled,
-                        onCheckedChange = { enabled ->
-                            handleNotificationSwitch(
-                                enabled = enabled,
-                                granted = notificationPermissionGranted,
-                                launcher = anomalyPermissionLauncher::launch,
-                                onEnable = { onAnomalyRemindersChange(true) },
-                                onDisable = { onAnomalyRemindersChange(false) },
-                            )
-                        },
-                    )
-                    NotificationSwitchRow(
-                        title = "大便频次提醒",
-                        checked = diaperRemindersEnabled,
-                        onCheckedChange = { enabled ->
-                            handleNotificationSwitch(
-                                enabled = enabled,
-                                granted = notificationPermissionGranted,
-                                launcher = diaperPermissionLauncher::launch,
-                                onEnable = { onDiaperRemindersChange(true) },
-                                onDisable = { onDiaperRemindersChange(false) },
-                            )
-                        },
-                    )
-                }
-            }
-        }
-
-        item {
-            ElevatedCard {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text("宝宝资料", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        BabyAvatar(
-                            avatarPath = avatarAttachment.photoPath,
-                            contentDescription = "宝宝头像",
-                            modifier = Modifier.size(92.dp),
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f),
-                            borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                        )
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Text("头像", style = MaterialTheme.typography.labelLarge)
-                            Text(
-                                "不上传也会使用新的默认宝贝头像。拍照和选图都会存到应用管理目录里。",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                    }
                     PhotoActionRow(
                         title = "头像",
-                        removeLabel = "移除头像",
+                        removeLabel = "移除",
                         hasPhoto = avatarAttachment.photoPath != null,
                         onTakePhoto = avatarAttachment.onTakePhoto,
                         onPickPhoto = avatarAttachment.onPickPhoto,
                         onRemovePhoto = avatarAttachment.onRemovePhoto,
                     )
+                }
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("昵称") },
+                    singleLine = true,
+                )
+                Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("昵称") },
-                        singleLine = true,
-                    )
-                    NativeDatePickerField(
                         value = birthday,
-                        onValueChange = { birthday = it },
+                        onValueChange = {},
+                        readOnly = true,
                         modifier = Modifier.fillMaxWidth(),
-                        label = "生日",
-                        supportingText = "点击选择日期",
-                        maxDate = LocalDate.now(),
-                    )
-                    FilterChipSection(
-                        title = "性别",
-                        entries = Gender.entries,
-                        selected = gender,
-                        label = { it.label },
-                        onSelect = { gender = it },
-                    )
-                    ElevatedButton(
-                        onClick = {
-                            val parsedBirthday = runCatching { LocalDate.parse(birthday.trim(), dateFormatter) }.getOrNull()
-                            if (name.isBlank()) {
-                                errorText = "昵称不能为空。"
-                                return@ElevatedButton
+                        label = { Text("生日") },
+                        trailingIcon = {
+                            IconButton(onClick = { showDatePicker = true }) {
+                                Icon(Icons.Rounded.CalendarMonth, contentDescription = "选择日期")
                             }
-                            if (parsedBirthday == null) {
-                                errorText = "请选择生日。"
-                                return@ElevatedButton
-                            }
-                            errorText = null
-                            avatarAttachment.commitChanges()
-                            retainedAvatarPath = avatarAttachment.photoPath
-                            onSaveProfile(
-                                BabyProfile(
-                                    name = name.trim(),
-                                    birthday = parsedBirthday,
-                                    gender = gender,
-                                    avatarPath = avatarAttachment.photoPath,
-                                ),
-                            )
-                        },
-                    ) {
-                        Text("保存资料")
-                    }
+                        }
+                    )
+                    Box(modifier = Modifier.matchParentSize().clickable { showDatePicker = true })
                 }
-            }
-        }
-
-        item {
-            ElevatedCard {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text("看护人", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    OutlinedTextField(
-                        value = caregiverText,
-                        onValueChange = { caregiverText = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("看护人列表") },
-                        supportingText = { Text("用 顿号 / 逗号 / 换行 分隔，例如：妈妈、爸爸、奶奶") },
-                    )
-                    ElevatedButton(onClick = { onCaregiversChange(caregiverText) }) {
-                        Text("保存看护人")
-                    }
-                    if (caregivers.isNotEmpty()) {
-                        FilterChipSection(
-                            title = "当前默认记录人",
-                            entries = caregivers,
-                            selected = currentCaregiver,
-                            label = { it },
-                            onSelect = onCurrentCaregiverChange,
+                FilterChipSection(
+                    title = "性别",
+                    entries = Gender.entries,
+                    selected = gender,
+                    label = { it.label },
+                    onSelect = { gender = it },
+                )
+                ElevatedButton(
+                    onClick = {
+                        val parsedBirthday = runCatching { LocalDate.parse(birthday.trim(), dateFormatter) }.getOrNull()
+                        if (name.isBlank()) {
+                            errorText = "昵称不能为空。"
+                            return@ElevatedButton
+                        }
+                        if (parsedBirthday == null) {
+                            errorText = "请选择生日。"
+                            return@ElevatedButton
+                        }
+                        errorText = null
+                        avatarAttachment.commitChanges()
+                        retainedAvatarPath = avatarAttachment.photoPath
+                        onSaveProfile(
+                            BabyProfile(
+                                name = name.trim(),
+                                birthday = parsedBirthday,
+                                gender = gender,
+                                avatarPath = avatarAttachment.photoPath,
+                            ),
                         )
-                    }
+                    },
+                ) {
+                    Text("保存资料")
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider()
         }
 
         item {
-            ElevatedCard {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text("主题与显示", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    FilterChipSection(
-                        title = "外观",
-                        entries = ThemeMode.entries,
-                        selected = themeMode,
-                        label = { it.label },
-                        onSelect = onThemeModeChange,
-                    )
-                    SettingSwitchRow(
-                        title = "大字体模式",
-                        checked = largeTextModeEnabled,
-                        onCheckedChange = onLargeTextModeChange,
-                    )
-                    SettingSwitchRow(
-                        title = "夜间自动深色",
-                        checked = darkModeScheduleEnabled,
-                        onCheckedChange = {
-                            val startHour = scheduleStartText.toIntOrNull()?.coerceIn(0, 23) ?: darkModeStartHour
-                            val endHour = scheduleEndText.toIntOrNull()?.coerceIn(0, 23) ?: darkModeEndHour
-                            onDarkModeScheduleChange(it, startHour, endHour)
-                        },
-                    )
+            SettingsSectionTitle("主题与外观")
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    ThemeMode.entries.forEachIndexed { index, mode ->
+                        SegmentedButton(
+                            selected = themeMode == mode,
+                            onClick = { onThemeModeChange(mode) },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = ThemeMode.entries.size),
+                            icon = {
+                                SegmentedButtonDefaults.Icon(active = themeMode == mode) {
+                                    Icon(
+                                        imageVector = when(mode) {
+                                            ThemeMode.SYSTEM -> Icons.Rounded.Smartphone
+                                            ThemeMode.LIGHT -> Icons.Rounded.LightMode
+                                            ThemeMode.DARK -> Icons.Rounded.DarkMode
+                                        },
+                                        contentDescription = mode.label,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        ) {
+                            Text(mode.label)
+                        }
+                    }
+                }
+
+                ListItem(
+                    headlineContent = { Text("大字体模式") },
+                    trailingContent = { Switch(checked = largeTextModeEnabled, onCheckedChange = onLargeTextModeChange) },
+                    modifier = Modifier.clickable { onLargeTextModeChange(!largeTextModeEnabled) },
+                    contentPadding = PaddingValues(0.dp)
+                )
+
+                ListItem(
+                    headlineContent = { Text("夜间自动深色") },
+                    supportingContent = { Text("当前时段：$darkModeStartHour:00 - $darkModeEndHour:00") },
+                    trailingContent = {
+                        Switch(
+                            checked = darkModeScheduleEnabled,
+                            onCheckedChange = {
+                                val startHour = scheduleStartText.toIntOrNull()?.coerceIn(0, 23) ?: darkModeStartHour
+                                val endHour = scheduleEndText.toIntOrNull()?.coerceIn(0, 23) ?: darkModeEndHour
+                                onDarkModeScheduleChange(it, startHour, endHour)
+                            }
+                        )
+                    },
+                    modifier = Modifier.clickable { 
+                        val startHour = scheduleStartText.toIntOrNull()?.coerceIn(0, 23) ?: darkModeStartHour
+                        val endHour = scheduleEndText.toIntOrNull()?.coerceIn(0, 23) ?: darkModeEndHour
+                        onDarkModeScheduleChange(!darkModeScheduleEnabled, startHour, endHour) 
+                    },
+                    contentPadding = PaddingValues(0.dp)
+                )
+
+                if (darkModeScheduleEnabled) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         OutlinedTextField(
                             value = scheduleStartText,
                             onValueChange = { scheduleStartText = it.filter(Char::isDigit).take(2) },
                             modifier = Modifier.weight(1f),
-                            label = { Text("开始小时") },
+                            label = { Text("开始 (0-23)") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
                         )
@@ -537,7 +465,7 @@ fun SettingsScreen(
                             value = scheduleEndText,
                             onValueChange = { scheduleEndText = it.filter(Char::isDigit).take(2) },
                             modifier = Modifier.weight(1f),
-                            label = { Text("结束小时") },
+                            label = { Text("结束 (0-23)") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
                         )
@@ -556,83 +484,170 @@ fun SettingsScreen(
                     ) {
                         Text("保存夜间时段")
                     }
-                    Text("当前夜间时段：$darkModeStartHour:00 - $darkModeEndHour:00", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("风格", style = MaterialTheme.typography.labelLarge)
-                        AppTheme.entries.chunked(2).forEach { rowThemes ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                rowThemes.forEach { theme ->
-                                    ThemeStyleCard(
-                                        theme = theme,
-                                        selected = theme == appTheme,
-                                        onClick = { onAppThemeChange(theme) },
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                }
-                                if (rowThemes.size == 1) {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                }
-                            }
-                        }
-                    }
                 }
-            }
-        }
 
-        item {
-            ElevatedCard {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text("首页模块", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                Text("应用风格", style = MaterialTheme.typography.labelLarge)
+                AppTheme.entries.chunked(2).forEach { rowThemes ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        HomeModule.entries.forEach { module ->
-                            FilterChip(
-                                selected = module in homeModules,
-                                onClick = {
-                                    val next = homeModules.toMutableSet().apply {
-                                        if (!add(module)) remove(module)
-                                    }
-                                    onHomeModulesChange(next)
-                                },
-                                label = { Text(module.label) },
+                        rowThemes.forEach { theme ->
+                            ThemeStyleCard(
+                                theme = theme,
+                                selected = theme == appTheme,
+                                onClick = { onAppThemeChange(theme) },
+                                modifier = Modifier.weight(1f),
                             )
                         }
+                        if (rowThemes.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider()
         }
 
         item {
-            ElevatedCard {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
+            SettingsSectionTitle("数据与备份")
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                FilterChipSection(
+                    title = "自动备份频率",
+                    entries = BackupFrequency.entries,
+                    selected = autoBackupFrequency,
+                    label = { it.label },
+                    onSelect = onAutoBackupFrequencyChange,
+                )
+                
+                Text("手动导出与恢复", style = MaterialTheme.typography.labelLarge)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("关于", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("版本 ${BuildConfig.VERSION_NAME}")
-                    Text(
-                        "当前提供离线记录、智能默认值、Widget 一键记录、成长曲线、疫苗计划、智能提醒、完整备份/恢复、CSV 导入、多看护人标记和阶段化首页。",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ElevatedButton(
+                        enabled = !isExporting,
+                        onClick = {
+                            onClearExportMessage()
+                            csvExportLauncher.launch("littlegrow-${LocalDate.now()}-export.csv")
+                        },
+                    ) { Text("导出 CSV") }
+                    ElevatedButton(
+                        enabled = !isExporting,
+                        onClick = {
+                            onClearExportMessage()
+                            pdfExportLauncher.launch("littlegrow-${LocalDate.now()}-export.pdf")
+                        },
+                    ) { Text("导出 PDF") }
+                    ElevatedButton(
+                        enabled = !isExporting,
+                        onClick = {
+                            onClearExportMessage()
+                            backupExportLauncher.launch("littlegrow-${LocalDate.now()}.lgbackup")
+                        },
+                    ) { Text("完整备份") }
+                    OutlinedButton(
+                        enabled = !isExporting,
+                        onClick = {
+                            onClearExportMessage()
+                            csvImportLauncher.launch(arrayOf("text/*", "*/*"))
+                        },
+                    ) { Text("导入 CSV") }
+                    OutlinedButton(
+                        enabled = !isExporting,
+                        onClick = {
+                            onClearExportMessage()
+                            backupRestoreLauncher.launch(arrayOf("*/*"))
+                        },
+                    ) { Text("恢复备份") }
+                }
+                exportMessage?.let {
+                    Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider()
+        }
+        
+        item {
+            SettingsSectionTitle("首页模块与看护人")
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Text("首页显示模块", style = MaterialTheme.typography.labelLarge)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    HomeModule.entries.forEach { module ->
+                        FilterChip(
+                            selected = module in homeModules,
+                            onClick = {
+                                val next = homeModules.toMutableSet().apply {
+                                    if (!add(module)) remove(module)
+                                }
+                                onHomeModulesChange(next)
+                            },
+                            label = { Text(module.label) },
+                        )
+                    }
+                }
+                
+                OutlinedTextField(
+                    value = caregiverText,
+                    onValueChange = { caregiverText = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("看护人列表") },
+                    supportingText = { Text("用 顿号 / 逗号 / 换行 分隔") },
+                )
+                ElevatedButton(onClick = { onCaregiversChange(caregiverText) }) {
+                    Text("保存看护人")
+                }
+                if (caregivers.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "当前默认记录人",
+                        entries = caregivers,
+                        selected = currentCaregiver,
+                        label = { it },
+                        onSelect = onCurrentCaregiverChange,
                     )
                 }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider()
+        }
+
+        item {
+            SettingsSectionTitle("关于")
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("长呀长 - LittleGrow", fontWeight = FontWeight.SemiBold)
+                Text("版本 ${BuildConfig.VERSION_NAME}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "离线记录、智能默认值、成长曲线、疫苗计划、自动备份等核心功能永久免费。",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
         }
 
         errorText?.let { message ->
             item {
-                ElevatedCard {
+                Spacer(modifier = Modifier.height(16.dp))
+                ElevatedCard(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Text(
                         message,
                         modifier = Modifier.padding(16.dp),
@@ -645,32 +660,27 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun NotificationSwitchRow(
-    title: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    SettingSwitchRow(
-        title = title,
-        checked = checked,
-        onCheckedChange = onCheckedChange,
+private fun SettingsSectionTitle(title: String) {
+    Text(
+        text = title,
+        color = MaterialTheme.colorScheme.primary,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)
     )
 }
 
 @Composable
-private fun SettingSwitchRow(
+private fun NotificationListItem(
     title: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(title)
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
+    ListItem(
+        headlineContent = { Text(title) },
+        trailingContent = { Switch(checked = checked, onCheckedChange = onCheckedChange) },
+        modifier = Modifier.clickable { onCheckedChange(!checked) }
+    )
 }
 
 private fun handleNotificationSwitch(

@@ -427,7 +427,6 @@ fun SettingsScreen(
                     headlineContent = { Text("大字体模式") },
                     trailingContent = { Switch(checked = largeTextModeEnabled, onCheckedChange = onLargeTextModeChange) },
                     modifier = Modifier.clickable { onLargeTextModeChange(!largeTextModeEnabled) },
-                    contentPadding = PaddingValues(0.dp)
                 )
 
                 ListItem(
@@ -448,7 +447,6 @@ fun SettingsScreen(
                         val endHour = scheduleEndText.toIntOrNull()?.coerceIn(0, 23) ?: darkModeEndHour
                         onDarkModeScheduleChange(!darkModeScheduleEnabled, startHour, endHour) 
                     },
-                    contentPadding = PaddingValues(0.dp)
                 )
 
                 if (darkModeScheduleEnabled) {

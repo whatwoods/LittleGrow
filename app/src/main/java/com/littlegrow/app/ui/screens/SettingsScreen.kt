@@ -26,17 +26,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Smartphone
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -46,7 +42,6 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -72,6 +67,7 @@ import com.littlegrow.app.data.Gender
 import com.littlegrow.app.data.HomeModule
 import com.littlegrow.app.data.ThemeMode
 import com.littlegrow.app.ui.BabyAvatar
+import com.littlegrow.app.ui.NativeDatePickerField
 import com.littlegrow.app.ui.PhotoActionRow
 import com.littlegrow.app.ui.components.AdaptiveActionBar
 import com.littlegrow.app.ui.components.AdaptiveActionBarItem
@@ -177,8 +173,6 @@ fun SettingsScreen(
     var birthday by rememberSaveable(profile?.birthday) {
         mutableStateOf(profile?.birthday?.format(dateFormatter) ?: LocalDate.now().format(dateFormatter))
     }
-    var showDatePicker by remember { mutableStateOf(false) }
-    
     var gender by rememberSaveable(profile?.gender) { mutableStateOf(profile?.gender ?: Gender.GIRL) }
     var caregiverText by rememberSaveable(caregivers) { mutableStateOf(caregivers.joinToString("、")) }
     var scheduleStartText by rememberSaveable(darkModeStartHour) { mutableStateOf(darkModeStartHour.toString()) }
@@ -201,35 +195,6 @@ fun SettingsScreen(
             }
         }
     }
-    
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = runCatching { 
-                LocalDate.parse(birthday, dateFormatter).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
-            }.getOrNull()
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        val instant = java.time.Instant.ofEpochMilli(millis)
-                        val localDate = java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.of("UTC")).toLocalDate()
-                        birthday = localDate.format(dateFormatter)
-                    }
-                    showDatePicker = false
-                }) {
-                    Text("确定")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("取消") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-
     LazyColumn(
         contentPadding = PaddingValues(
             top = contentPadding.calculateTopPadding() + 16.dp,
@@ -340,21 +305,13 @@ fun SettingsScreen(
                     label = { Text("昵称") },
                     singleLine = true,
                 )
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = birthday,
-                        onValueChange = {},
-                        readOnly = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("生日") },
-                        trailingIcon = {
-                            IconButton(onClick = { showDatePicker = true }) {
-                                Icon(Icons.Rounded.CalendarMonth, contentDescription = "选择日期")
-                            }
-                        }
-                    )
-                    Box(modifier = Modifier.matchParentSize().clickable { showDatePicker = true })
-                }
+                NativeDatePickerField(
+                    value = birthday,
+                    onValueChange = { birthday = it },
+                    label = "生日",
+                    modifier = Modifier.fillMaxWidth(),
+                    maxDate = LocalDate.now(),
+                )
                 FilterChipSection(
                     title = "性别",
                     entries = Gender.entries,

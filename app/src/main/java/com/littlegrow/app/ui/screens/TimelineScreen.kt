@@ -74,6 +74,9 @@ import com.littlegrow.app.ui.PhotoActionRow
 import com.littlegrow.app.ui.PhotoPreviewCard
 import com.littlegrow.app.ui.components.GlassSurface
 import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
+import com.littlegrow.app.ui.theme.ContentAlpha
+import com.littlegrow.app.ui.theme.Spacing
+import com.littlegrow.app.ui.theme.softShadow
 import com.littlegrow.app.ui.dateFormatter
 import com.littlegrow.app.ui.formatDate
 import com.littlegrow.app.ui.rememberManagedPhotoAttachment
@@ -158,11 +161,12 @@ fun TimelineScreen(
                 itemsIndexed(milestones, key = { _, m -> m.id }) { index, milestone ->
                     var isVisible by remember { mutableStateOf(false) }
                     LaunchedEffect(milestone.id) { isVisible = true }
-                    
+                    val fromLeft = index % 2 == 0
+
                     AnimatedVisibility(
                         visible = isVisible,
                         enter = fadeIn() + slideInHorizontally(
-                            initialOffsetX = { -it / 3 },
+                            initialOffsetX = { if (fromLeft) -it / 3 else it / 3 },
                             animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy)
                         )
                     ) {
@@ -171,65 +175,103 @@ fun TimelineScreen(
                             isLast = index == totalMilestones - 1,
                             category = milestone.category,
                         ) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            GlassSurface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .softShadow(elevation = 10.dp),
+                                shape = MaterialTheme.shapes.large,
+                                alpha = 0.52f,
+                                accentColor = milestoneCategoryColors[milestone.category]
+                                    ?: MaterialTheme.colorScheme.primary,
+                                shadowElevation = 0.dp,
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(Spacing.lg),
+                                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                                 ) {
-                                    Text(milestone.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                    profile?.birthday?.let { birthday ->
-                                        val day = ChronoUnit.DAYS.between(birthday, milestone.achievedDate) + 1
-                                        Surface(
-                                            color = MaterialTheme.colorScheme.primaryContainer,
-                                            shape = RoundedCornerShape(16.dp),
-                                            shadowElevation = 2.dp,
+                                    // Title + day badge
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            milestone.title,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        profile?.birthday?.let { birthday ->
+                                            val day = ChronoUnit.DAYS.between(birthday, milestone.achievedDate) + 1
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
+                                                shape = MaterialTheme.shapes.small,
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 4.dp),
+                                                    verticalAlignment = Alignment.Bottom,
+                                                    horizontalArrangement = Arrangement.spacedBy(1.dp),
+                                                ) {
+                                                    Text(
+                                                        "第",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    )
+                                                    Text(
+                                                        "$day",
+                                                        style = MaterialTheme.typography.displaySmall,
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                    )
+                                                    Text(
+                                                        "天",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Date + category
+                                    val dateStr = "${milestone.achievedDate.formatDate()} · ${milestone.category.label}"
+                                    Text(
+                                        dateStr,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = ContentAlpha.medium),
+                                    )
+
+                                    milestone.note?.let {
+                                        Text(it, style = MaterialTheme.typography.bodyMedium)
+                                    }
+
+                                    milestone.photoPath?.let {
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(top = Spacing.sm)
+                                                .softShadow(elevation = 8.dp, shape = MaterialTheme.shapes.large)
+                                                .clip(MaterialTheme.shapes.large)
                                         ) {
-                                            Text(
-                                                "出生第 $day 天",
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                                style = MaterialTheme.typography.labelMedium,
-                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                fontWeight = FontWeight.Bold
+                                            PhotoPreviewCard(
+                                                filePath = it,
+                                                contentDescription = "${dateStr}的里程碑照片 - ${milestone.title}",
+                                                modifier = Modifier.fillMaxWidth().height(200.dp),
                                             )
                                         }
                                     }
-                                }
-                                
-                                val dateStr = "${milestone.achievedDate.formatDate()} · ${milestone.category.label}"
-                                Text(dateStr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                
-                                milestone.note?.let {
-                                    Text(it, style = MaterialTheme.typography.bodyMedium)
-                                }
-                                
-                                milestone.photoPath?.let {
-                                    Box(modifier = Modifier
-                                        .padding(top = 8.dp)
-                                        .shadow(4.dp, RoundedCornerShape(16.dp))
-                                        .clip(RoundedCornerShape(16.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.End,
                                     ) {
-                                        PhotoPreviewCard(filePath = it, contentDescription = "${dateStr}的里程碑照片 - ${milestone.title}", modifier = Modifier.fillMaxWidth().height(200.dp))
-                                    }
-                                }
-                                
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.End,
-                                ) {
-                                    TextButton(
-                                        onClick = {
+                                        TextButton(onClick = {
                                             editingMilestone = milestone
                                             showDialog = true
-                                        },
-                                    ) {
-                                        Text("编辑")
-                                    }
-                                    TextButton(onClick = { onDeleteMilestone(milestone.id) }) {
-                                        Text("删除", color = MaterialTheme.colorScheme.error)
+                                        }) { Text("编辑") }
+                                        TextButton(onClick = { onDeleteMilestone(milestone.id) }) {
+                                            Text("删除", color = MaterialTheme.colorScheme.error)
+                                        }
                                     }
                                 }
                             }
@@ -348,36 +390,76 @@ private fun TimelineRow(
 ) {
     val nodeColor = milestoneCategoryColors[category] ?: MaterialTheme.colorScheme.primary
     val icon = milestoneCategoryIcons[category] ?: Icons.Rounded.Star
-    val lineColor = MaterialTheme.colorScheme.surfaceVariant
-    val gradientBrush = Brush.verticalGradient(listOf(nodeColor, lineColor))
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val tertiaryColor = MaterialTheme.colorScheme.tertiary
+    // Ribbon: warm primary→tertiary gradient for full visual continuity
+    val ribbonBrush = Brush.verticalGradient(listOf(nodeColor, primaryColor, tertiaryColor))
+    val fadeInBrush = Brush.verticalGradient(
+        listOf(Color.Transparent, primaryColor.copy(alpha = 0.3f), nodeColor)
+    )
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .drawBehind {
-                val nodeY = 24.dp.toPx()
+                val nodeY = 28.dp.toPx()
                 val lineX = TimelineLineOffset.toPx()
-                val strokeW = 3.dp.toPx()
-                
+                val strokeW = 4.dp.toPx()
+                val glowW = 10.dp.toPx()
+
                 if (!isFirst) {
-                    drawLine(lineColor, androidx.compose.ui.geometry.Offset(lineX, 0f), androidx.compose.ui.geometry.Offset(lineX, nodeY - 12.dp.toPx()), strokeWidth = strokeW)
+                    // Glow halo behind ribbon
+                    drawLine(
+                        nodeColor.copy(alpha = 0.12f),
+                        androidx.compose.ui.geometry.Offset(lineX, 0f),
+                        androidx.compose.ui.geometry.Offset(lineX, nodeY - 14.dp.toPx()),
+                        strokeWidth = glowW,
+                    )
+                    drawLine(
+                        fadeInBrush,
+                        androidx.compose.ui.geometry.Offset(lineX, 0f),
+                        androidx.compose.ui.geometry.Offset(lineX, nodeY - 14.dp.toPx()),
+                        strokeWidth = strokeW,
+                    )
                 }
                 if (!isLast) {
-                    drawLine(gradientBrush, androidx.compose.ui.geometry.Offset(lineX, nodeY + 12.dp.toPx()), androidx.compose.ui.geometry.Offset(lineX, size.height), strokeWidth = strokeW)
+                    // Glow halo below node
+                    drawLine(
+                        nodeColor.copy(alpha = 0.1f),
+                        androidx.compose.ui.geometry.Offset(lineX, nodeY + 14.dp.toPx()),
+                        androidx.compose.ui.geometry.Offset(lineX, size.height),
+                        strokeWidth = glowW,
+                    )
+                    drawLine(
+                        ribbonBrush,
+                        androidx.compose.ui.geometry.Offset(lineX, nodeY + 14.dp.toPx()),
+                        androidx.compose.ui.geometry.Offset(lineX, size.height),
+                        strokeWidth = strokeW,
+                    )
                 }
             }
-            .padding(bottom = if (isLast) 0.dp else 32.dp)
+            .padding(bottom = if (isLast) 0.dp else 28.dp)
     ) {
+        // Node: outer glow ring + filled circle with icon
         Box(
             modifier = Modifier
-                .padding(start = TimelineLineOffset - 12.dp, top = 12.dp)
-                .size(24.dp)
+                .padding(start = TimelineLineOffset - 14.dp, top = 14.dp)
+                .size(28.dp)
+                .drawBehind {
+                    // Soft glow ring
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            listOf(nodeColor.copy(alpha = 0.35f), Color.Transparent),
+                            radius = size.minDimension * 0.9f,
+                        )
+                    )
+                }
                 .background(nodeColor, CircleShape),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
         }
-        Box(modifier = Modifier.padding(start = TimelineContentStart - TimelineLineOffset - 12.dp, end = 16.dp)) {
+        Box(modifier = Modifier.padding(start = TimelineContentStart - TimelineLineOffset - 14.dp, end = 16.dp)) {
             content()
         }
     }

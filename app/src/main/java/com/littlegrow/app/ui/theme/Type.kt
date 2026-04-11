@@ -16,34 +16,44 @@ val NunitoFontFamily = FontFamily(
     Font(R.font.nunito, FontWeight.Bold),
 )
 
+/**
+ * Fraunces: an optical-size variable serif with editorial character.
+ * Used exclusively for display and large headline styles — numbers and Latin
+ * glyphs render with ink-trap details; CJK characters fall back to the
+ * system font automatically, maintaining readability for Chinese text.
+ */
+val FrauncesDisplayFamily = FontFamily(
+    Font(R.font.fraunces_bold, FontWeight.Bold),
+)
+
 private val BaseTypography = Typography(
     displayLarge = TextStyle(
-        fontFamily = NunitoFontFamily,
+        fontFamily = FrauncesDisplayFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 57.sp,
         lineHeight = 64.sp,
-        letterSpacing = (-0.25).sp
+        letterSpacing = (-1.0).sp
     ),
     displayMedium = TextStyle(
-        fontFamily = NunitoFontFamily,
+        fontFamily = FrauncesDisplayFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 45.sp,
         lineHeight = 52.sp,
-        letterSpacing = 0.sp
+        letterSpacing = (-0.75).sp
     ),
     displaySmall = TextStyle(
-        fontFamily = NunitoFontFamily,
+        fontFamily = FrauncesDisplayFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 36.sp,
         lineHeight = 44.sp,
-        letterSpacing = 0.sp
+        letterSpacing = (-0.5).sp
     ),
     headlineLarge = TextStyle(
-        fontFamily = NunitoFontFamily,
-        fontWeight = FontWeight.SemiBold,
+        fontFamily = FrauncesDisplayFamily,
+        fontWeight = FontWeight.Bold,
         fontSize = 32.sp,
         lineHeight = 40.sp,
-        letterSpacing = 0.sp
+        letterSpacing = (-0.25).sp
     ),
     headlineMedium = TextStyle(
         fontFamily = NunitoFontFamily,

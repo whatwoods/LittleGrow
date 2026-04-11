@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,7 +26,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import java.time.LocalDate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.littlegrow.app.data.AgeBasedReference
@@ -89,61 +95,7 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg),
     ) {
         item {
-            GlassSurface(
-                modifier = Modifier.softShadow(),
-                alpha = 0.55f
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
-                ) {
-                    val avatarPath = summary.profile?.avatarPath
-                    val babyName = summary.profile?.name ?: "宝贝"
-                    val greeting = when (java.time.LocalTime.now().hour) {
-                        in 5..11 -> "早上好"
-                        in 12..17 -> "下午好"
-                        else -> "晚上好"
-                    }
-                    if (avatarPath.isNullOrBlank()) {
-                        Box(
-                            modifier = Modifier
-                                .size(72.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = babyName.take(1),
-                                style = MaterialTheme.typography.headlineMedium,
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                        }
-                    } else {
-                        BabyAvatar(
-                            avatarPath = avatarPath,
-                            contentDescription = "宝宝头像",
-                            modifier = Modifier.size(72.dp),
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.84f),
-                            borderColor = Color.White.copy(alpha = 0.22f),
-                        )
-                    }
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = summary.profile?.name?.let { "$it， $greeting" } ?: "欢迎来到长呀长",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = summary.ageText,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text("记录宝宝今天的成长吧")
-                    }
-                }
-            }
+            PostcardHeroCard(summary = summary)
         }
 
         if (encouragementText.isNotBlank()) {
@@ -271,6 +223,149 @@ fun HomeScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Postcard-style hero header: displays today's date, a large "第 N 天" counter
+ * using the Fraunces display font for the number, and the baby avatar + greeting.
+ * Backed by GlassSurface with a warm radial glow emanating from the top-left.
+ */
+@Composable
+private fun PostcardHeroCard(summary: HomeSummary) {
+    val babyName = summary.profile?.name ?: "宝贝"
+    val avatarPath = summary.profile?.avatarPath
+    val greeting = when (java.time.LocalTime.now().hour) {
+        in 5..11 -> "早上好"
+        in 12..17 -> "下午好"
+        else -> "晚上好"
+    }
+    val daysOld = summary.profile?.birthday?.let {
+        ChronoUnit.DAYS.between(it, LocalDate.now()).toInt()
+    }
+    val todayLabel = java.time.LocalDate.now().let {
+        "${it.year} 年 ${it.monthValue} 月 ${it.dayOfMonth} 日"
+    }
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val tertiaryColor = MaterialTheme.colorScheme.tertiary
+
+    GlassSurface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .softShadow(),
+        alpha = 0.58f,
+        shape = MaterialTheme.shapes.large,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawBehind {
+                    // Warm radial glow from top-right corner
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                tertiaryColor.copy(alpha = 0.13f),
+                                primaryColor.copy(alpha = 0.06f),
+                                Color.Transparent,
+                            ),
+                            center = Offset(size.width * 0.85f, size.height * 0.1f),
+                            radius = size.width * 0.72f,
+                        )
+                    )
+                }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                // Date label row
+                Text(
+                    text = todayLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = ContentAlpha.medium),
+                )
+
+                // Hero row: big day count on left, avatar on right
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        if (daysOld != null) {
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    text = "第",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = ContentAlpha.medium),
+                                )
+                                Text(
+                                    text = "$daysOld",
+                                    style = MaterialTheme.typography.displayMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Text(
+                                    text = "天",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = ContentAlpha.medium),
+                                )
+                            }
+                        }
+                        Text(
+                            text = summary.profile?.name?.let { "$it，$greeting" } ?: "欢迎来到长呀长",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = summary.ageText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    // Avatar
+                    if (avatarPath.isNullOrBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    brush = Brush.radialGradient(
+                                        listOf(primaryColor, tertiaryColor)
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = babyName.take(1),
+                                style = MaterialTheme.typography.headlineLarge,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        }
+                    } else {
+                        BabyAvatar(
+                            avatarPath = avatarPath,
+                            contentDescription = "宝宝头像",
+                            modifier = Modifier.size(80.dp),
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.84f),
+                            borderColor = Color.White.copy(alpha = 0.22f),
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "记录宝宝今天的成长吧",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = ContentAlpha.medium),
+                )
             }
         }
     }

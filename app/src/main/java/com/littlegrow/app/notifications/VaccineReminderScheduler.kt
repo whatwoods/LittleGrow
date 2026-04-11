@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -29,6 +30,7 @@ private const val CHANNEL_ID = "vaccine_reminders"
 private const val EXTRA_NAME = "extra_name"
 private const val EXTRA_DATE = "extra_date"
 private const val EXTRA_KEY = "extra_key"
+private const val RESTORE_TAG = "ReminderRestore"
 
 object VaccineReminderScheduler {
     fun ensureChannel(context: Context) {
@@ -151,8 +153,16 @@ class VaccineReminderRestoreReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         receiverScope.launch {
             try {
-                VaccineReminderScheduler.rescheduleFromStorage(context)
-                QuickActionNotificationController.restoreFromStorage(context)
+                runCatching {
+                    VaccineReminderScheduler.rescheduleFromStorage(context)
+                }.onFailure { throwable ->
+                    Log.e(RESTORE_TAG, "Failed to restore vaccine reminders.", throwable)
+                }
+                runCatching {
+                    QuickActionNotificationController.restoreFromStorage(context)
+                }.onFailure { throwable ->
+                    Log.e(RESTORE_TAG, "Failed to restore quick action notifications.", throwable)
+                }
             } finally {
                 pendingResult.finish()
             }

@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.CardDefaults
@@ -32,6 +34,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import java.time.LocalDate
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.littlegrow.app.data.AgeBasedReference
 import com.littlegrow.app.data.DiaperEntity
@@ -92,21 +95,30 @@ fun HomeScreen(
             top = contentPadding.calculateTopPadding() + Spacing.lg,
             bottom = contentPadding.calculateBottomPadding() + Spacing.xl,
         ),
-        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xl),
     ) {
+        // 1. Hero Profile Card
         item {
             PostcardHeroCard(summary = summary)
         }
 
+        // 2. Stats Bento Grid
+        item {
+            StatsBentoGrid(summary = summary)
+        }
+
+        // 3. Milestone Section
+        item {
+            MilestoneSection(
+                summary = summary,
+                onOpenTimeline = onOpenTimeline,
+            )
+        }
+
+        // 4. Daily Tip
         if (encouragementText.isNotBlank()) {
             item {
-                ElevatedCard {
-                    Text(
-                        text = encouragementText,
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                }
+                DailyTipCard(text = encouragementText)
             }
         }
 
@@ -143,16 +155,6 @@ fun HomeScreen(
                     }
                 }
             }
-        }
-
-        item {
-            QuickActionGrid(
-                onOpenRecords = onOpenRecords,
-                onOpenGrowth = onOpenGrowth,
-                onOpenTimeline = onOpenTimeline,
-                onOpenMedicalSummary = onOpenMedicalSummary,
-                onOpenSettings = onOpenSettings,
-            )
         }
 
         activeModules.forEach { module ->
@@ -229,27 +231,14 @@ fun HomeScreen(
 }
 
 /**
- * Postcard-style hero header: displays today's date, a large "第 N 天" counter
- * using the Fraunces display font for the number, and the baby avatar + greeting.
- * Backed by GlassSurface with a warm radial glow emanating from the top-left.
+ * Hero profile card with golden-glow gradient, baby name, age, and weight/height stats.
  */
 @Composable
 private fun PostcardHeroCard(summary: HomeSummary) {
     val babyName = summary.profile?.name ?: "宝贝"
     val avatarPath = summary.profile?.avatarPath
-    val greeting = when (java.time.LocalTime.now().hour) {
-        in 5..11 -> "早上好"
-        in 12..17 -> "下午好"
-        else -> "晚上好"
-    }
-    val daysOld = summary.profile?.birthday?.let {
-        ChronoUnit.DAYS.between(it, LocalDate.now()).toInt()
-    }
-    val todayLabel = java.time.LocalDate.now().let {
-        "${it.year} 年 ${it.monthValue} 月 ${it.dayOfMonth} 日"
-    }
     val primaryColor = MaterialTheme.colorScheme.primary
-    val tertiaryColor = MaterialTheme.colorScheme.tertiary
+    val primaryContainerColor = MaterialTheme.colorScheme.primaryContainer
 
     GlassSurface(
         modifier = Modifier
@@ -262,16 +251,15 @@ private fun PostcardHeroCard(summary: HomeSummary) {
             modifier = Modifier
                 .fillMaxWidth()
                 .drawBehind {
-                    // Warm radial glow from top-right corner
-                    drawCircle(
-                        brush = Brush.radialGradient(
+                    // Golden-glow gradient: 135deg from primary to primaryContainer at 15% opacity
+                    drawRect(
+                        brush = Brush.linearGradient(
                             colors = listOf(
-                                tertiaryColor.copy(alpha = 0.13f),
-                                primaryColor.copy(alpha = 0.06f),
-                                Color.Transparent,
+                                primaryColor.copy(alpha = 0.08f),
+                                primaryContainerColor.copy(alpha = 0.12f),
                             ),
-                            center = Offset(size.width * 0.85f, size.height * 0.1f),
-                            radius = size.width * 0.72f,
+                            start = Offset.Zero,
+                            end = Offset(size.width, size.height),
                         )
                     )
                 }
@@ -279,66 +267,44 @@ private fun PostcardHeroCard(summary: HomeSummary) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(Spacing.lg),
             ) {
-                // Date label row
-                Text(
-                    text = todayLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = ContentAlpha.medium),
-                )
-
-                // Hero row: big day count on left, avatar on right
+                // Top row: name + age on left, avatar on right
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Bottom,
+                    verticalAlignment = Alignment.Top,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        if (daysOld != null) {
-                            Row(
-                                verticalAlignment = Alignment.Bottom,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Text(
-                                    text = "第",
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = ContentAlpha.medium),
-                                )
-                                Text(
-                                    text = "$daysOld",
-                                    style = MaterialTheme.typography.displayMedium,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                                Text(
-                                    text = "天",
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = ContentAlpha.medium),
-                                )
-                            }
-                        }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
                         Text(
-                            text = summary.profile?.name?.let { "$it，$greeting" } ?: "欢迎来到长呀长",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
+                            text = babyName,
+                            style = MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
                             text = summary.ageText,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.secondary,
                         )
                     }
 
-                    // Avatar
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    // Avatar (96dp circle with white border)
                     if (avatarPath.isNullOrBlank()) {
                         Box(
                             modifier = Modifier
-                                .size(80.dp)
+                                .size(96.dp)
                                 .clip(CircleShape)
                                 .background(
                                     brush = Brush.radialGradient(
-                                        listOf(primaryColor, tertiaryColor)
+                                        listOf(primaryColor, primaryContainerColor)
                                     )
                                 ),
                             contentAlignment = Alignment.Center,
@@ -353,18 +319,354 @@ private fun PostcardHeroCard(summary: HomeSummary) {
                         BabyAvatar(
                             avatarPath = avatarPath,
                             contentDescription = "宝宝头像",
-                            modifier = Modifier.size(80.dp),
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.84f),
-                            borderColor = Color.White.copy(alpha = 0.22f),
+                            modifier = Modifier.size(96.dp),
+                            containerColor = Color.White,
+                            borderColor = Color.White,
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // 2-column stats grid for weight and height
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    // Weight stat
+                    val growth = summary.latestGrowth
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.6f),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                text = "当前体重",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                            )
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Text(
+                                    text = growth?.weightKg?.let { String.format("%.1f", it) } ?: "--",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = "kg",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(bottom = 4.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    // Height stat
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.6f),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                text = "当前身高",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.secondary,
+                            )
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Text(
+                                    text = growth?.heightCm?.let { String.format("%.0f", it) } ?: "--",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = "cm",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(bottom = 4.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Stats Bento Grid: feeding card (wider, ~58%) and sleep card (~42%) side by side.
+ */
+@Composable
+private fun StatsBentoGrid(summary: HomeSummary) {
+    val latestFeeding = summary.recentFeedings.firstOrNull()
+    val latestSleep = summary.recentSleeps.firstOrNull()
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // Left: Feeding card (wider, ~58%)
+        Surface(
+            modifier = Modifier.weight(0.58f),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.secondaryContainer,
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 Text(
-                    text = "记录宝宝今天的成长吧",
+                    text = "最近喂奶",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = latestFeeding?.amountMl?.let { "${it}ml" }
+                            ?: latestFeeding?.durationMinutes?.let { "${it}分钟" }
+                            ?: "${summary.todayFeedings}次",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                    Text(
+                        text = latestFeeding?.let {
+                            val minutes = ChronoUnit.MINUTES.between(it.happenedAt, java.time.LocalDateTime.now())
+                            when {
+                                minutes < 60 -> "${minutes}分前"
+                                minutes < 1440 -> "${minutes / 60}小时 ${minutes % 60}分前"
+                                else -> it.happenedAt.formatDateTime()
+                            }
+                        } ?: "暂无记录",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                    )
+                }
+            }
+        }
+
+        // Right: Sleep card (~42%)
+        Surface(
+            modifier = Modifier.weight(0.42f),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.tertiaryContainer,
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = "睡眠",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    val sleepText = latestSleep?.let {
+                        val durationMin = Duration.between(it.startTime, it.endTime).toMinutes()
+                        val hours = durationMin / 60.0
+                        if (hours >= 1.0) String.format("%.1fh", hours) else "${durationMin}分"
+                    } ?: "${summary.todaySleepMinutes}分"
+                    Text(
+                        text = sleepText,
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    )
+                    Text(
+                        text = latestSleep?.sleepType?.label ?: "暂无记录",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Milestone celebrations section with header and milestone item.
+ */
+@Composable
+private fun MilestoneSection(
+    summary: HomeSummary,
+    onOpenTimeline: () -> Unit,
+) {
+    val milestone = summary.latestMilestone
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // Section header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "成长里程碑",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            TextButton(onClick = onOpenTimeline) {
+                Text(
+                    text = "全部",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+
+        if (milestone != null) {
+            // Milestone item
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    // 64dp icon area with primaryContainer/30 background
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = milestone.category.label.take(1),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                        )
+                    }
+
+                    // Text content
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            Text(
+                                text = milestone.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f),
+                            )
+                            val daysAgo = ChronoUnit.DAYS.between(milestone.achievedDate, LocalDate.now()).toInt()
+                            Text(
+                                text = when {
+                                    daysAgo == 0 -> "今天"
+                                    daysAgo < 30 -> "${daysAgo}天前"
+                                    daysAgo < 365 -> "${daysAgo / 30}个月前"
+                                    else -> milestone.achievedDate.formatDate()
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.outline,
+                            )
+                        }
+                        milestone.note?.let { note ->
+                            Text(
+                                text = note,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+            ) {
+                Text(
+                    text = "还没有里程碑记录，快去记录宝宝的第一个里程碑吧！",
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Daily tip card with 4dp primary-colored left border drawn via Modifier.drawBehind.
+ */
+@Composable
+private fun DailyTipCard(text: String) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .drawBehind {
+                // 4dp left border in primary color
+                drawRect(
+                    color = primaryColor,
+                    topLeft = Offset.Zero,
+                    size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height),
+                )
+            },
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Today,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp),
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "今日育儿贴士",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = text,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = ContentAlpha.medium),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

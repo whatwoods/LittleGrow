@@ -1,23 +1,37 @@
 package com.littlegrow.app.ui.screens
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoStories
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.MonitorWeight
+import androidx.compose.material.icons.rounded.NoteAlt
+import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +42,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -49,6 +65,7 @@ import com.littlegrow.app.data.VaccineCategory
 import com.littlegrow.app.data.VaccineReactionDraft
 import com.littlegrow.app.data.WhoGrowthStandards
 import com.littlegrow.app.ui.NativeDatePickerField
+import com.littlegrow.app.ui.components.GlassSurface
 import com.littlegrow.app.ui.components.ExpressiveFilterChip as FilterChip
 import com.littlegrow.app.ui.components.ExpressiveOutlinedButton as OutlinedButton
 import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
@@ -85,25 +102,40 @@ fun GrowthScreen(
                 top = contentPadding.calculateTopPadding() + 16.dp,
                 bottom = contentPadding.calculateBottomPadding() + 96.dp,
             ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            // -- Monthly Growth Summary Card --
             item {
-                ElevatedCard {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text("成长发育", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text(
-                            "体重、身高和头围会叠加 WHO 官方百分位参考线，方便在就诊时快速说明趋势。",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+                MonthlyGrowthSummaryCard(
+                    profile = profile,
+                    growthRecords = growthRecords,
+                )
             }
 
+            // -- Height Trend Section --
+            item {
+                GrowthTrendSection(
+                    profile = profile,
+                    records = growthRecords,
+                    metric = GrowthMetric.HEIGHT,
+                )
+            }
+
+            // -- Weight Trend Section --
+            item {
+                GrowthTrendSection(
+                    profile = profile,
+                    records = growthRecords,
+                    metric = GrowthMetric.WEIGHT,
+                )
+            }
+
+            // -- Bottom Bento Cards --
+            item {
+                BentoCardsRow()
+            }
+
+            // -- Metric filter chips (for head/BMI etc.) --
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -119,6 +151,7 @@ fun GrowthScreen(
                 }
             }
 
+            // -- Full chart card (existing logic, all metrics) --
             item {
                 GrowthChartCard(
                     profile = profile,
@@ -127,6 +160,7 @@ fun GrowthScreen(
                 )
             }
 
+            // -- Growth records list --
             if (growthRecords.isEmpty()) {
                 item { EmptyRecordCard("还没有生长记录。") }
             } else {
@@ -173,6 +207,7 @@ fun GrowthScreen(
                 }
             }
 
+            // -- Vaccine sections --
             item {
                 VaccineOverviewCard(hasVaccines = vaccines.isNotEmpty())
             }
@@ -235,6 +270,587 @@ fun GrowthScreen(
                 editingVaccine = null
             },
         )
+    }
+}
+
+@Composable
+private fun MonthlyGrowthSummaryCard(
+    profile: BabyProfile?,
+    growthRecords: List<GrowthEntity>,
+) {
+    val ageMonths = profile?.let {
+        ChronoUnit.MONTHS.between(it.birthday, LocalDate.now()).toInt()
+    }
+    val sorted = growthRecords.sortedBy { it.date }
+    val weightGain = if (sorted.size >= 2) {
+        val latest = sorted.last().weightKg
+        val previous = sorted[sorted.size - 2].weightKg
+        if (latest != null && previous != null) String.format("%.2f", latest - previous) else "--"
+    } else "--"
+    val heightGain = if (sorted.size >= 2) {
+        val latest = sorted.last().heightCm
+        val previous = sorted[sorted.size - 2].heightCm
+        if (latest != null && previous != null) String.format("%.1f", latest - previous) else "--"
+    } else "--"
+
+    GlassSurface(
+        modifier = Modifier.fillMaxWidth(),
+        alpha = 0.70f,
+        shape = RoundedCornerShape(24.dp),
+        accentColor = MaterialTheme.colorScheme.primary,
+        shadowElevation = 18.dp,
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // Decorative blur circles
+            Box(
+                modifier = Modifier
+                    .size(192.dp)
+                    .offset(x = 200.dp, y = (-48).dp)
+                    .blur(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.30f))
+            )
+            Box(
+                modifier = Modifier
+                    .size(192.dp)
+                    .offset(x = (-48).dp, y = 100.dp)
+                    .blur(48.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.20f))
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    Column {
+                        Text(
+                            "本月成长摘要",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "茁壮成长中",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    if (ageMonths != null) {
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                        ) {
+                            Text(
+                                "${ageMonths}个月大",
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    // Weight gain card
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.40f),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.MonitorWeight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Text(
+                                    "体重增长",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    weightGain,
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    "kg",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(bottom = 2.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    // Height gain card
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.40f),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Straighten,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.tertiary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Text(
+                                    "身高增长",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    heightGain,
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    "cm",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(bottom = 2.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GrowthTrendSection(
+    profile: BabyProfile?,
+    records: List<GrowthEntity>,
+    metric: GrowthMetric,
+) {
+    val isHeight = metric == GrowthMetric.HEIGHT
+    val sectionTitle = if (isHeight) "身高趋势 (cm)" else "体重趋势 (kg)"
+    val barColor = if (isHeight) {
+        MaterialTheme.colorScheme.secondary
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // Section header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(2.dp)
+                        .height(24.dp)
+                        .background(
+                            color = barColor,
+                            shape = RoundedCornerShape(50),
+                        )
+                )
+                Text(
+                    sectionTitle,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+
+            if (isHeight) {
+                // Legend for height chart
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    shape = CircleShape,
+                                )
+                        )
+                        Text(
+                            "测量值",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    shape = CircleShape,
+                                )
+                        )
+                        Text(
+                            "基准",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            } else {
+                // WHO standard label for weight chart
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        "符合WHO标准",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        // Chart card with surfaceContainerLowest background
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            shadowElevation = 1.dp,
+        ) {
+            GrowthChartContent(
+                profile = profile,
+                records = records,
+                metric = metric,
+            )
+        }
+    }
+}
+
+@Composable
+private fun GrowthChartContent(
+    profile: BabyProfile?,
+    records: List<GrowthEntity>,
+    metric: GrowthMetric,
+) {
+    val context = LocalContext.current
+    val measurementPoints = remember(profile, records, metric) {
+        buildMeasurementPoints(profile, records, metric)
+    }
+    val reference = remember(profile?.gender, metric) {
+        profile?.let { WhoGrowthStandards.load(context, it.gender, metric) }
+    }
+    val visibleMaxAgeDays = remember(profile, measurementPoints) {
+        determineChartWindowDays(profile, measurementPoints)
+    }
+    val visibleReferencePoints = remember(reference, visibleMaxAgeDays) {
+        reference?.points?.filter { it.ageDays <= visibleMaxAgeDays }.orEmpty()
+    }
+    val predictionPoints = remember(measurementPoints, visibleMaxAgeDays) {
+        buildPredictionPoints(measurementPoints, visibleMaxAgeDays)
+    }
+
+    var animationPlayed by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(metric) {
+        animationPlayed = false
+        kotlinx.coroutines.delay(50)
+        animationPlayed = true
+    }
+    val animProgress by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (animationPlayed) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 1200, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        label = "trendChartReveal"
+    )
+
+    val isHeight = metric == GrowthMetric.HEIGHT
+    val lineColor = if (isHeight) {
+        MaterialTheme.colorScheme.secondary
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
+    val refBandColor = if (isHeight) {
+        MaterialTheme.colorScheme.secondaryContainer
+    } else {
+        MaterialTheme.colorScheme.primaryContainer
+    }
+    val gridColor = MaterialTheme.colorScheme.surfaceContainer
+    val accentColor = MaterialTheme.colorScheme.tertiary
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (measurementPoints.isEmpty() && profile == null) {
+            Text(
+                "先填写宝宝生日和性别，再补一条生长记录。",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        } else {
+            val yCandidates = buildList {
+                addAll(measurementPoints.map { it.second })
+                visibleReferencePoints.forEach { point ->
+                    add(point.p3)
+                    add(point.p15)
+                    add(point.p50)
+                    add(point.p85)
+                    add(point.p97)
+                }
+            }
+            val yPadding = when (metric) {
+                GrowthMetric.WEIGHT -> 0.5f
+                GrowthMetric.HEIGHT, GrowthMetric.HEAD -> 1f
+                GrowthMetric.BMI -> 0.6f
+            }
+            val minY = (yCandidates.minOrNull() ?: 0f) - yPadding
+            val maxY = (yCandidates.maxOrNull() ?: 1f) + yPadding
+
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(192.dp),
+            ) {
+                val width = size.width
+                val height = size.height
+                val horizontalPadding = 32f
+                val verticalPadding = 24f
+                val ySpread = (maxY - minY).takeIf { it > 0f } ?: 1f
+                val chartWidth = width - horizontalPadding * 2
+                val chartHeight = height - verticalPadding * 2
+                fun project(ageDays: Int, value: Float): Offset {
+                    val xProgress = ageDays.toFloat() / visibleMaxAgeDays.coerceAtLeast(1)
+                    val yProgress = (value - minY) / ySpread
+                    return Offset(
+                        x = horizontalPadding + chartWidth * xProgress,
+                        y = height - verticalPadding - chartHeight * yProgress,
+                    )
+                }
+
+                // Grid lines
+                repeat(4) { index ->
+                    val y = verticalPadding + chartHeight * index / 3f
+                    drawLine(
+                        color = gridColor,
+                        start = Offset(horizontalPadding, y),
+                        end = Offset(width - horizontalPadding, y),
+                        strokeWidth = 1f,
+                    )
+                }
+
+                // Reference band (draw wide translucent P50 line as band)
+                if (visibleReferencePoints.isNotEmpty()) {
+                    val refPath = Path().apply {
+                        visibleReferencePoints.forEachIndexed { pointIndex, point ->
+                            val offset = project(point.ageDays, point.p50)
+                            if (pointIndex == 0) moveTo(offset.x, offset.y) else lineTo(offset.x, offset.y)
+                        }
+                    }
+                    drawPath(
+                        path = refPath,
+                        color = refBandColor.copy(alpha = 0.30f),
+                        style = Stroke(width = 20f, cap = StrokeCap.Round),
+                    )
+                }
+
+                // Main measurement curve
+                if (measurementPoints.isNotEmpty()) {
+                    val measurementPath = Path().apply {
+                        measurementPoints.forEachIndexed { index, point ->
+                            val offset = project(point.first, point.second)
+                            if (index == 0) moveTo(offset.x, offset.y) else lineTo(offset.x, offset.y)
+                        }
+                    }
+
+                    val pathMeasure = androidx.compose.ui.graphics.PathMeasure()
+                    pathMeasure.setPath(measurementPath, false)
+                    val animatedPath = Path()
+                    pathMeasure.getSegment(0f, pathMeasure.length * animProgress, animatedPath, true)
+
+                    if (measurementPoints.size > 1) {
+                        drawPath(
+                            path = animatedPath,
+                            color = lineColor,
+                            style = Stroke(width = 4f, cap = StrokeCap.Round),
+                        )
+                    }
+
+                    // Data points
+                    val pointsToDraw = (measurementPoints.size * animProgress).toInt()
+                    measurementPoints.take(pointsToDraw + 1).forEachIndexed { index, point ->
+                        val isLast = index == measurementPoints.lastIndex
+                        val radius = if (isLast) 6f else 4f
+                        drawCircle(
+                            color = lineColor,
+                            radius = radius,
+                            center = project(point.first, point.second),
+                        )
+                    }
+                }
+
+                // Prediction line
+                if (predictionPoints.isNotEmpty()) {
+                    val predictionPath = Path().apply {
+                        predictionPoints.forEachIndexed { index, point ->
+                            val offset = project(point.first, point.second)
+                            if (index == 0) moveTo(offset.x, offset.y) else lineTo(offset.x, offset.y)
+                        }
+                    }
+                    drawPath(
+                        path = predictionPath,
+                        color = accentColor.copy(alpha = 0.7f * animProgress),
+                        style = Stroke(
+                            width = 3f,
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f)),
+                            cap = StrokeCap.Round,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BentoCardsRow() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // Left card: Milestones
+        Surface(
+            modifier = Modifier
+                .weight(1f)
+                .height(160.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.30f),
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.AutoStories,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.size(32.dp),
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Column {
+                    Text(
+                        "成长里程碑",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    )
+                    Text(
+                        "本月达成 3 个新技能",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.80f),
+                    )
+                }
+            }
+        }
+
+        // Right card: Expert advice
+        Surface(
+            modifier = Modifier
+                .weight(1f)
+                .height(160.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.30f),
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.NoteAlt,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(32.dp),
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Column {
+                    Text(
+                        "专家建议",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                    Text(
+                        "当前阶段饮食重点",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.80f),
+                    )
+                }
+            }
+        }
     }
 }
 

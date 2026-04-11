@@ -93,11 +93,7 @@ private fun InfoCardJournal(
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = ContentAlpha.medium),
                 )
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = Spacing.sm),
-                    color = dividerColor,
-                    thickness = 0.6.dp
-                )
+                Spacer(modifier = Modifier.height(24.dp))
                 content()
             }
         }

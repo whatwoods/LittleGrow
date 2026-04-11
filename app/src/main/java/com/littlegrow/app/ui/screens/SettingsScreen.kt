@@ -28,6 +28,22 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material3.IconButton
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedContent
+import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.Dashboard
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.LightMode
@@ -205,96 +221,102 @@ fun SettingsScreen(
             }
         }
     }
-    LazyColumn(
-        contentPadding = PaddingValues(
+
+    var currentCategory by rememberSaveable { mutableStateOf<SettingsCategory?>(null) }
+    BackHandler(enabled = currentCategory != null) {
+        currentCategory = null
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(
             top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 24.dp,
-        ),
+        )
     ) {
-        item {
-            GlassSurface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                alpha = 0.82f,
-                shape = RoundedCornerShape(28.dp),
-                accentColor = MaterialTheme.colorScheme.secondary,
-                shadowElevation = 20.dp,
+        GlassSurface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            alpha = 0.82f,
+            shape = RoundedCornerShape(28.dp),
+            accentColor = MaterialTheme.colorScheme.secondary,
+            shadowElevation = 20.dp,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
             ) {
+                if (currentCategory != null) {
+                    IconButton(onClick = { currentCategory = null }) {
+                        Icon(Icons.Rounded.ArrowBack, contentDescription = "返回", tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
                 Text(
-                    "设置",
+                    currentCategory?.title ?: "设置",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
-            Spacer(modifier = Modifier.height(16.dp))
         }
+        Spacer(modifier = Modifier.height(16.dp))
 
-        item {
-            SettingsSectionTitle("提醒与通知")
-            ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Column {
-                    NotificationListItem(
-                        title = "疫苗接种提醒",
-                        checked = vaccineRemindersEnabled,
-                        onCheckedChange = { enabled ->
-                            handleNotificationSwitch(
-                                enabled = enabled,
-                                granted = notificationPermissionGranted,
-                                launcher = vaccinePermissionLauncher::launch,
-                                onEnable = { onVaccineRemindersChange(true) },
-                                onDisable = { onVaccineRemindersChange(false) },        
-                            )
-                        },
-                    )
-                    NotificationListItem(
-                        title = "智能异常提醒",
-                        checked = anomalyRemindersEnabled,
-                        onCheckedChange = { enabled ->
-                            handleNotificationSwitch(
-                                enabled = enabled,
-                                granted = notificationPermissionGranted,
-                                launcher = anomalyPermissionLauncher::launch,
-                                onEnable = { onAnomalyRemindersChange(true) },
-                                onDisable = { onAnomalyRemindersChange(false) },        
-                            )
-                        },
-                    )
-                    NotificationListItem(
-                        title = "大便频次提醒",
-                        checked = diaperRemindersEnabled,
-                        onCheckedChange = { enabled ->
-                            handleNotificationSwitch(
-                                enabled = enabled,
-                                granted = notificationPermissionGranted,
-                                launcher = diaperPermissionLauncher::launch,
-                                onEnable = { onDiaperRemindersChange(true) },
-                                onDisable = { onDiaperRemindersChange(false) },
-                            )
-                        },
-                    )
-                    NotificationListItem(
-                        title = "通知栏快捷记录",
-                        checked = quickActionNotificationsEnabled,
-                        onCheckedChange = { enabled ->
-                            handleNotificationSwitch(
-                                enabled = enabled,
-                                granted = notificationPermissionGranted,
-                                launcher = quickPermissionLauncher::launch,
-                                onEnable = { onQuickActionNotificationsChange(true) },  
-                                onDisable = { onQuickActionNotificationsChange(false) },
-                            )
-                        },
-                    )
-                }
+        AnimatedContent(
+            targetState = currentCategory,
+            label = "SettingsTransition",
+            transitionSpec = {
+                fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
             }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        item {
-            SettingsSectionTitle("宝宝资料")
-            ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        ) { category ->
+            LazyColumn(
+                contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding() + 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                if (category == null) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            SettingsCategory.entries.forEach { cat ->
+                                ElevatedCard(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                    onClick = { currentCategory = cat },
+                                    shape = RoundedCornerShape(24.dp)
+                                ) {
+                                    ListItem(
+                                        headlineContent = { Text(cat.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) },
+                                        leadingContent = { 
+                                            Box(
+                                                modifier = Modifier.size(48.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(cat.icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer) 
+                                            }
+                                        },
+                                        trailingContent = { Icon(Icons.Rounded.ChevronRight, contentDescription = "进入", tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
+                                        modifier = Modifier.padding(vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (errorText != null) {
+                        item {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            ElevatedCard(modifier = Modifier.padding(horizontal = 16.dp)) { 
+                                Text(
+                                    errorText!!,
+                                    modifier = Modifier.padding(16.dp),
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    item {
+                        when (category) {
+                            SettingsCategory.PROFILE -> {
+                                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -371,12 +393,67 @@ fun SettingsScreen(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        item {
-            SettingsSectionTitle("主题与外观")
-            ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                            }
+                            SettingsCategory.NOTIFICATIONS -> {
+                                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Column {
+                    NotificationListItem(
+                        title = "疫苗接种提醒",
+                        checked = vaccineRemindersEnabled,
+                        onCheckedChange = { enabled ->
+                            handleNotificationSwitch(
+                                enabled = enabled,
+                                granted = notificationPermissionGranted,
+                                launcher = vaccinePermissionLauncher::launch,
+                                onEnable = { onVaccineRemindersChange(true) },
+                                onDisable = { onVaccineRemindersChange(false) },        
+                            )
+                        },
+                    )
+                    NotificationListItem(
+                        title = "智能异常提醒",
+                        checked = anomalyRemindersEnabled,
+                        onCheckedChange = { enabled ->
+                            handleNotificationSwitch(
+                                enabled = enabled,
+                                granted = notificationPermissionGranted,
+                                launcher = anomalyPermissionLauncher::launch,
+                                onEnable = { onAnomalyRemindersChange(true) },
+                                onDisable = { onAnomalyRemindersChange(false) },        
+                            )
+                        },
+                    )
+                    NotificationListItem(
+                        title = "大便频次提醒",
+                        checked = diaperRemindersEnabled,
+                        onCheckedChange = { enabled ->
+                            handleNotificationSwitch(
+                                enabled = enabled,
+                                granted = notificationPermissionGranted,
+                                launcher = diaperPermissionLauncher::launch,
+                                onEnable = { onDiaperRemindersChange(true) },
+                                onDisable = { onDiaperRemindersChange(false) },
+                            )
+                        },
+                    )
+                    NotificationListItem(
+                        title = "通知栏快捷记录",
+                        checked = quickActionNotificationsEnabled,
+                        onCheckedChange = { enabled ->
+                            handleNotificationSwitch(
+                                enabled = enabled,
+                                granted = notificationPermissionGranted,
+                                launcher = quickPermissionLauncher::launch,
+                                onEnable = { onQuickActionNotificationsChange(true) },  
+                                onDisable = { onQuickActionNotificationsChange(false) },
+                            )
+                        },
+                    )
+                }
+            }
+                            }
+                            SettingsCategory.APPEARANCE -> {
+                                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -483,12 +560,9 @@ fun SettingsScreen(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        item {
-            SettingsSectionTitle("数据与备份")
-            ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                            }
+                            SettingsCategory.DATA -> {
+                                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -574,12 +648,9 @@ fun SettingsScreen(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        item {
-            SettingsSectionTitle("首页模块与看护人")
-            ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                            }
+                            SettingsCategory.MODULES -> {
+                                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -626,40 +697,30 @@ fun SettingsScreen(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        item {
-            SettingsSectionTitle("关于")
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text("长呀长 - LittleGrow", fontWeight = FontWeight.SemiBold)   
-                Text("版本 ${BuildConfig.VERSION_NAME}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(
-                    "离线记录、智能默认值、成长曲线、疫苗计划、自动备份等核心功能永久免费。",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-        }
-
-        errorText?.let { message ->
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                ElevatedCard(modifier = Modifier.padding(horizontal = 16.dp)) { 
-                    Text(
-                        message,
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.error,
-                    )
+                            }
+                            SettingsCategory.ABOUT -> {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text("长呀长 - LittleGrow", fontWeight = FontWeight.SemiBold)   
+                                    Text("版本 ${BuildConfig.VERSION_NAME}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        "离线记录、智能默认值、成长曲线、疫苗计划、自动备份等核心功能永久免费。",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
+
 }
 
 @Composable
@@ -829,4 +890,14 @@ private fun themeStyleDescription(theme: AppTheme): String = when (theme) {
     AppTheme.PEACH -> "奶油暖桃色，柔和温馨。"
     AppTheme.MINT -> "清透薄荷色，层次轻盈。"
     AppTheme.LAVENDER -> "灰紫雾面色，安静沉稳。"
+}
+
+
+enum class SettingsCategory(val title: String, val icon: ImageVector) {
+    PROFILE("宝宝资料", Icons.Rounded.Person),
+    NOTIFICATIONS("提醒与通知", Icons.Rounded.Notifications),
+    APPEARANCE("主题与外观", Icons.Rounded.Palette),
+    MODULES("首页模块与看护人", Icons.Rounded.Dashboard),
+    DATA("数据与备份", Icons.Rounded.Storage),
+    ABOUT("关于", Icons.Rounded.Info)
 }

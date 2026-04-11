@@ -1,812 +1,218 @@
-import sys
+import re
 
-settings_code = '''package com.littlegrow.app.ui.screens
+with open('app/src/main/java/com/littlegrow/app/ui/screens/SettingsScreen.kt', 'r', encoding='utf-8') as f:
+    content = f.read()
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.LightMode
-import androidx.compose.material.icons.rounded.Smartphone
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
-import com.littlegrow.app.BuildConfig
-import com.littlegrow.app.data.AppTheme
-import com.littlegrow.app.data.BackupFrequency
-import com.littlegrow.app.data.BabyProfile
-import com.littlegrow.app.data.Gender
-import com.littlegrow.app.data.HomeModule
-import com.littlegrow.app.data.ThemeMode
-import com.littlegrow.app.ui.BabyAvatar
-import com.littlegrow.app.ui.NativeDatePickerField
-import com.littlegrow.app.ui.PhotoActionRow
-import com.littlegrow.app.ui.components.AdaptiveActionBar
-import com.littlegrow.app.ui.components.AdaptiveActionBarItem
-import com.littlegrow.app.ui.components.AdaptiveActionBarItemStyle
-import com.littlegrow.app.ui.components.ExpressiveElevatedButton as ElevatedButton
-import com.littlegrow.app.ui.components.ExpressiveFilterChip as FilterChip      
-import com.littlegrow.app.ui.components.ExpressiveOutlinedButton as OutlinedButton
-import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton      
-import com.littlegrow.app.ui.dateFormatter
-import com.littlegrow.app.ui.rememberManagedPhotoAttachment
-import com.littlegrow.app.ui.theme.ThemePreviewColors
-import com.littlegrow.app.ui.theme.previewColors
-import java.time.LocalDate
+# Add imports
+imports_to_add = """
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Dashboard
+import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.graphics.vector.ImageVector
+"""
+for line in imports_to_add.strip().split('\n'):
+    if line not in content:
+        content = content.replace("import androidx.compose.material.icons.Icons\n", f"import androidx.compose.material.icons.Icons\n{line}\n")
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
-@Composable
-fun SettingsScreen(
-    profile: BabyProfile?,
-    themeMode: ThemeMode,
-    appTheme: AppTheme,
-    vaccineRemindersEnabled: Boolean,
-    quickActionNotificationsEnabled: Boolean,
-    anomalyRemindersEnabled: Boolean,
-    diaperRemindersEnabled: Boolean,
-    largeTextModeEnabled: Boolean,
-    darkModeScheduleEnabled: Boolean,
-    darkModeStartHour: Int,
-    darkModeEndHour: Int,
-    homeModules: Set<HomeModule>,
-    caregivers: List<String>,
-    currentCaregiver: String,
-    autoBackupFrequency: BackupFrequency,
-    exportMessage: String?,
-    isExporting: Boolean,
-    contentPadding: PaddingValues,
-    onSaveProfile: (BabyProfile) -> Unit,
-    onThemeModeChange: (ThemeMode) -> Unit,
-    onAppThemeChange: (AppTheme) -> Unit,
-    onVaccineRemindersChange: (Boolean) -> Unit,
-    onQuickActionNotificationsChange: (Boolean) -> Unit,
-    onAnomalyRemindersChange: (Boolean) -> Unit,
-    onDiaperRemindersChange: (Boolean) -> Unit,
-    onLargeTextModeChange: (Boolean) -> Unit,
-    onDarkModeScheduleChange: (Boolean, Int, Int) -> Unit,
-    onHomeModulesChange: (Set<HomeModule>) -> Unit,
-    onCaregiversChange: (String) -> Unit,
-    onCurrentCaregiverChange: (String) -> Unit,
-    onAutoBackupFrequencyChange: (BackupFrequency) -> Unit,
-    onExportCsv: (Uri) -> Unit,
-    onExportPdf: (Uri) -> Unit,
-    onExportBackup: (Uri) -> Unit,
-    onRestoreBackup: (Uri) -> Unit,
-    onImportCsv: (Uri) -> Unit,
-    onOpenMedicalSummary: () -> Unit,
-    onClearExportMessage: () -> Unit,
-) {
-    val context = LocalContext.current
-    val notificationPermissionGranted =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) == PackageManager.PERMISSION_GRANTED
+# Add enum
+enum_code = """
+enum class SettingsCategory(val title: String, val icon: ImageVector) {
+    PROFILE("宝宝资料", Icons.Rounded.Person),
+    NOTIFICATIONS("提醒与通知", Icons.Rounded.Notifications),
+    APPEARANCE("主题与外观", Icons.Rounded.Palette),
+    MODULES("首页模块与看护人", Icons.Rounded.Dashboard),
+    DATA("数据与备份", Icons.Rounded.Storage),
+    ABOUT("关于", Icons.Rounded.Info)
+}
+"""
+if "enum class SettingsCategory" not in content:
+    content += "\n" + enum_code
 
-    val vaccinePermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) onVaccineRemindersChange(true)
-    }
-    val quickPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) onQuickActionNotificationsChange(true)
-    }
-    val anomalyPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) onAnomalyRemindersChange(true)
-    }
-    val diaperPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) onDiaperRemindersChange(true)
+lazy_column_start = content.find("    LazyColumn(\n        contentPadding = PaddingValues(")
+if lazy_column_start == -1:
+    print("Could not find LazyColumn start")
+    exit(1)
+
+settings_screen_end = content.find("}\n\n@Composable\nprivate fun SettingsSectionTitle")
+if settings_screen_end == -1:
+    print("Could not find SettingsScreen end")
+    exit(1)
+
+lazy_column_code = content[lazy_column_start:settings_screen_end]
+
+def get_block_by_marker(text, marker):
+    start_idx = text.find(marker)
+    if start_idx == -1: return ""
+    component_start = text.find("ElevatedCard(", start_idx)
+    if component_start == -1:
+        component_start = text.find("Column(", start_idx)
+    if component_start == -1: return ""
+    
+    brace_count = 0
+    in_brace = False
+    end_idx = component_start
+    for i in range(component_start, len(text)):
+        if text[i] == '{':
+            brace_count += 1
+            in_brace = True
+        elif text[i] == '}':
+            brace_count -= 1
+        
+        if in_brace and brace_count == 0:
+            end_idx = i + 1
+            break
+            
+    return text[component_start:end_idx]
+
+notif_content = get_block_by_marker(lazy_column_code, "SettingsSectionTitle(\"提醒与通知\")")
+prof_content = get_block_by_marker(lazy_column_code, "SettingsSectionTitle(\"宝宝资料\")")
+app_content = get_block_by_marker(lazy_column_code, "SettingsSectionTitle(\"主题与外观\")")
+data_content = get_block_by_marker(lazy_column_code, "SettingsSectionTitle(\"数据与备份\")")
+mod_content = get_block_by_marker(lazy_column_code, "SettingsSectionTitle(\"首页模块与看护人\")")
+about_content = get_block_by_marker(lazy_column_code, "SettingsSectionTitle(\"关于\")")
+
+new_lazy_column = """
+    var currentCategory by rememberSaveable { mutableStateOf<SettingsCategory?>(null) }
+    BackHandler(enabled = currentCategory != null) {
+        currentCategory = null
     }
 
-    val csvExportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("text/csv"),
-    ) { uri -> uri?.let(onExportCsv) }
-    val pdfExportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/pdf"),   
-    ) { uri -> uri?.let(onExportPdf) }
-    val backupExportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/zip"),   
-    ) { uri -> uri?.let(onExportBackup) }
-    val backupRestoreLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-    ) { uri -> uri?.let(onRestoreBackup) }
-    val csvImportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-    ) { uri -> uri?.let(onImportCsv) }
-
-    var name by rememberSaveable(profile?.name) { mutableStateOf(profile?.name.orEmpty()) }
-    var birthday by rememberSaveable(profile?.birthday) {
-        mutableStateOf(profile?.birthday?.format(dateFormatter) ?: LocalDate.now().format(dateFormatter))
-    }
-    var gender by rememberSaveable(profile?.gender) { mutableStateOf(profile?.gender ?: Gender.GIRL) }
-    var caregiverText by rememberSaveable(caregivers) { mutableStateOf(caregivers.joinToString("、")) }
-    var scheduleStartText by rememberSaveable(darkModeStartHour) { mutableStateOf(darkModeStartHour.toFloat()) }
-    var scheduleEndText by rememberSaveable(darkModeEndHour) { mutableStateOf(darkModeEndHour.toFloat()) }
-    var errorText by rememberSaveable { mutableStateOf<String?>(null) }
-    var retainedAvatarPath by rememberSaveable(profile?.avatarPath) { mutableStateOf(profile?.avatarPath) }
-    val avatarAttachment = rememberManagedPhotoAttachment(
-        initialPhotoPath = profile?.avatarPath,
-        photoTag = "avatar",
-        onError = { errorText = it },
-    )
-    val latestAvatarPath by rememberUpdatedState(avatarAttachment.photoPath)    
-    val latestRetainedAvatarPath by rememberUpdatedState(retainedAvatarPath)    
-    val latestDiscardAvatarChanges by rememberUpdatedState(avatarAttachment.discardChanges)
-
-    DisposableEffect(profile?.avatarPath) {
-        onDispose {
-            if (latestAvatarPath != latestRetainedAvatarPath) {
-                latestDiscardAvatarChanges()
-            }
-        }
-    }
-    LazyColumn(
-        contentPadding = PaddingValues(
+    Column(
+        modifier = Modifier.fillMaxSize().padding(
             top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 24.dp,
-        ),
+        )
     ) {
-        item {
-            Text(
-                "设置",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        item {
-            SettingsSectionTitle("提醒与通知")
-            ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Column {
-                    NotificationListItem(
-                        title = "疫苗接种提醒",
-                        checked = vaccineRemindersEnabled,
-                        onCheckedChange = { enabled ->
-                            handleNotificationSwitch(
-                                enabled = enabled,
-                                granted = notificationPermissionGranted,
-                                launcher = vaccinePermissionLauncher::launch,
-                                onEnable = { onVaccineRemindersChange(true) },
-                                onDisable = { onVaccineRemindersChange(false) },        
-                            )
-                        },
-                    )
-                    NotificationListItem(
-                        title = "智能异常提醒",
-                        checked = anomalyRemindersEnabled,
-                        onCheckedChange = { enabled ->
-                            handleNotificationSwitch(
-                                enabled = enabled,
-                                granted = notificationPermissionGranted,
-                                launcher = anomalyPermissionLauncher::launch,
-                                onEnable = { onAnomalyRemindersChange(true) },
-                                onDisable = { onAnomalyRemindersChange(false) },        
-                            )
-                        },
-                    )
-                    NotificationListItem(
-                        title = "大便频次提醒",
-                        checked = diaperRemindersEnabled,
-                        onCheckedChange = { enabled ->
-                            handleNotificationSwitch(
-                                enabled = enabled,
-                                granted = notificationPermissionGranted,
-                                launcher = diaperPermissionLauncher::launch,
-                                onEnable = { onDiaperRemindersChange(true) },
-                                onDisable = { onDiaperRemindersChange(false) },
-                            )
-                        },
-                    )
-                    NotificationListItem(
-                        title = "通知栏快捷记录",
-                        checked = quickActionNotificationsEnabled,
-                        onCheckedChange = { enabled ->
-                            handleNotificationSwitch(
-                                enabled = enabled,
-                                granted = notificationPermissionGranted,
-                                launcher = quickPermissionLauncher::launch,
-                                onEnable = { onQuickActionNotificationsChange(true) },  
-                                onDisable = { onQuickActionNotificationsChange(false) },
-                            )
-                        },
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        item {
-            SettingsSectionTitle("宝宝资料")
-            ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),        
-                    ) {
-                        BabyAvatar(
-                            avatarPath = avatarAttachment.photoPath,
-                            contentDescription = "宝宝头像",
-                            modifier = Modifier.size(72.dp),
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f),
-                            borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                        )
-                        PhotoActionRow(
-                            title = "头像",
-                            removeLabel = "移除",
-                            hasPhoto = avatarAttachment.photoPath != null,
-                            onTakePhoto = avatarAttachment.onTakePhoto,
-                            onPickPhoto = avatarAttachment.onPickPhoto,
-                            onRemovePhoto = avatarAttachment.onRemovePhoto,
-                        )
-                    }
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("昵称") },
-                        singleLine = true,
-                    )
-                    NativeDatePickerField(
-                        value = birthday,
-                        onValueChange = { birthday = it },
-                        label = "生日",
-                        modifier = Modifier.fillMaxWidth(),
-                        maxDate = LocalDate.now(),
-                    )
-                    FilterChipSection(
-                        title = "性别",
-                        entries = Gender.entries,
-                        selected = gender,
-                        label = { it.label },
-                        onSelect = { gender = it },
-                    )
-                    ElevatedButton(
-                        onClick = {
-                            val parsedBirthday = runCatching { LocalDate.parse(birthday.trim(), dateFormatter) }.getOrNull()
-                            if (name.isBlank()) {
-                                errorText = "昵称不能为空。"
-                                return@ElevatedButton
-                            }
-                            if (parsedBirthday == null) {
-                                errorText = "请选择生日。"
-                                return@ElevatedButton
-                            }
-                            errorText = null
-                            avatarAttachment.commitChanges()
-                            retainedAvatarPath = avatarAttachment.photoPath
-                            onSaveProfile(
-                                BabyProfile(
-                                    name = name.trim(),
-                                    birthday = parsedBirthday,
-                                    gender = gender,
-                                    avatarPath = avatarAttachment.photoPath,        
-                                ),
-                            )
-                        },
-                    ) {
-                        Text("保存资料")
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        item {
-            SettingsSectionTitle("主题与外观")
-            ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                        ThemeMode.entries.forEachIndexed { index, mode ->
-                            SegmentedButton(
-                                selected = themeMode == mode,
-                                onClick = { onThemeModeChange(mode) },
-                                shape = SegmentedButtonDefaults.itemShape(index = index, count = ThemeMode.entries.size),
-                                icon = {
-                                    SegmentedButtonDefaults.Icon(active = themeMode == mode) {
-                                        Icon(
-                                            imageVector = when(mode) {
-                                                ThemeMode.SYSTEM -> Icons.Rounded.Smartphone
-                                                ThemeMode.LIGHT -> Icons.Rounded.LightMode
-                                                ThemeMode.DARK -> Icons.Rounded.DarkMode
-                                            },
-                                            contentDescription = mode.label,        
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
-                            ) {
-                                Text(mode.label)
-                            }
-                        }
-                    }
-
-                    ListItem(
-                        headlineContent = { Text("大字体模式") },
-                        trailingContent = { Switch(checked = largeTextModeEnabled, onCheckedChange = onLargeTextModeChange) },
-                        modifier = Modifier.clickable { onLargeTextModeChange(!largeTextModeEnabled) },
-                        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent)
-                    )
-
-                    ListItem(
-                        headlineContent = { Text("夜间自动深色") },
-                        supportingContent = { Text("当前时段：${scheduleStartText.toInt()}:00 - ${scheduleEndText.toInt()}:00") },
-                        trailingContent = {
-                            Switch(
-                                checked = darkModeScheduleEnabled,
-                                onCheckedChange = {
-                                    val startHour = scheduleStartText.toInt().coerceIn(0, 23)
-                                    val endHour = scheduleEndText.toInt().coerceIn(0, 23)
-                                    onDarkModeScheduleChange(it, startHour, endHour)
-                                }
-                            )
-                        },
-                        modifier = Modifier.clickable {
-                            val startHour = scheduleStartText.toInt().coerceIn(0, 23)
-                            val endHour = scheduleEndText.toInt().coerceIn(0, 23)
-                            onDarkModeScheduleChange(!darkModeScheduleEnabled, startHour, endHour)
-                        },
-                        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent)
-                    )
-
-                    if (darkModeScheduleEnabled) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("开始时间: ${scheduleStartText.toInt()}:00", style = MaterialTheme.typography.bodySmall)
-                            Slider(
-                                value = scheduleStartText,
-                                onValueChange = { scheduleStartText = it },
-                                onValueChangeFinished = {
-                                    val startHour = scheduleStartText.toInt().coerceIn(0, 23)
-                                    val endHour = scheduleEndText.toInt().coerceIn(0, 23)
-                                    onDarkModeScheduleChange(darkModeScheduleEnabled, startHour, endHour)
-                                },
-                                valueRange = 0f..23f,
-                                steps = 23
-                            )
-                            
-                            Text("结束时间: ${scheduleEndText.toInt()}:00", style = MaterialTheme.typography.bodySmall)
-                            Slider(
-                                value = scheduleEndText,
-                                onValueChange = { scheduleEndText = it },
-                                onValueChangeFinished = {
-                                    val startHour = scheduleStartText.toInt().coerceIn(0, 23)
-                                    val endHour = scheduleEndText.toInt().coerceIn(0, 23)
-                                    onDarkModeScheduleChange(darkModeScheduleEnabled, startHour, endHour)
-                                },
-                                valueRange = 0f..23f,
-                                steps = 23
-                            )
-                        }
-                    }
-
-                    Text("应用风格", style = MaterialTheme.typography.labelLarge)   
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        AppTheme.entries.forEach { theme ->
-                            ThemeStyleCard(
-                                theme = theme,
-                                selected = theme == appTheme,
-                                onClick = { onAppThemeChange(theme) },
-                                modifier = Modifier.weight(1f).fillMaxWidth(0.48f),
-                            )
-                        }
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        item {
-            SettingsSectionTitle("数据与备份")
-            ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    FilterChipSection(
-                        title = "自动备份频率",
-                        entries = BackupFrequency.entries,
-                        selected = autoBackupFrequency,
-                        label = { it.label },
-                        onSelect = onAutoBackupFrequencyChange,
-                    )
-
-                    HorizontalDivider()
-
-                    Text("导出文件", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Text("导出为常见的格式以便分享或打印。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    AdaptiveActionBar(
-                        items = listOf(
-                            AdaptiveActionBarItem(
-                                label = "导出 CSV",
-                                enabled = !isExporting,
-                                onClick = {
-                                    onClearExportMessage()
-                                    csvExportLauncher.launch("littlegrow-${LocalDate.now()}-export.csv")
-                                },
-                                style = AdaptiveActionBarItemStyle.FilledTonal,     
-                            ),
-                            AdaptiveActionBarItem(
-                                label = "导出 PDF",
-                                enabled = !isExporting,
-                                onClick = {
-                                    onClearExportMessage()
-                                    pdfExportLauncher.launch("littlegrow-${LocalDate.now()}-export.pdf")
-                                },
-                                style = AdaptiveActionBarItemStyle.FilledTonal,     
-                            ),
-                        ),
-                    )
-                    
-                    HorizontalDivider()
-                    
-                    Text("备份与恢复", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.error)
-                    Text("备份或导入应用完整数据。导入将覆盖当前数据。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    AdaptiveActionBar(
-                        items = listOf(
-                            AdaptiveActionBarItem(
-                                label = "完整备份",
-                                enabled = !isExporting,
-                                onClick = {
-                                    onClearExportMessage()
-                                    backupExportLauncher.launch("littlegrow-${LocalDate.now()}.lgbackup")
-                                },
-                                style = AdaptiveActionBarItemStyle.FilledTonal,     
-                            ),
-                            AdaptiveActionBarItem(
-                                label = "导入 CSV",
-                                enabled = !isExporting,
-                                onClick = {
-                                    onClearExportMessage()
-                                    csvImportLauncher.launch(arrayOf("text/*", "*/*"))
-                                },
-                            ),
-                            AdaptiveActionBarItem(
-                                label = "恢复备份",
-                                enabled = !isExporting,
-                                onClick = {
-                                    onClearExportMessage()
-                                    backupRestoreLauncher.launch(arrayOf("*/*"))    
-                                },
-                            ),
-                        ),
-                    )
-
-                    if (isExporting) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                            Text("处理中...", style = MaterialTheme.typography.bodyMedium)
-                        }
-                    } else if (exportMessage != null) {
-                        Text(exportMessage, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        item {
-            SettingsSectionTitle("首页模块与看护人")
-            ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    Text("首页显示模块", style = MaterialTheme.typography.labelLarge)
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        HomeModule.entries.forEach { module ->
-                            FilterChip(
-                                selected = module in homeModules,
-                                onClick = {
-                                    val next = homeModules.toMutableSet().apply {   
-                                        if (!add(module)) remove(module)
-                                    }
-                                    onHomeModulesChange(next)
-                                },
-                                label = { Text(module.label) },
-                            )
-                        }
-                    }
-
-                    OutlinedTextField(
-                        value = caregiverText,
-                        onValueChange = { caregiverText = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("看护人列表") },
-                        supportingText = { Text("用 顿号 / 逗号 / 换行 分隔") },    
-                    )
-                    ElevatedButton(onClick = { onCaregiversChange(caregiverText) }) {
-                        Text("保存看护人")
-                    }
-                    if (caregivers.isNotEmpty()) {
-                        FilterChipSection(
-                            title = "当前默认记录人",
-                            entries = caregivers,
-                            selected = currentCaregiver,
-                            label = { it },
-                            onSelect = onCurrentCaregiverChange,
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        item {
-            SettingsSectionTitle("关于")
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+        GlassSurface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            alpha = 0.82f,
+            shape = RoundedCornerShape(28.dp),
+            accentColor = MaterialTheme.colorScheme.secondary,
+            shadowElevation = 20.dp,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
             ) {
-                Text("长呀长 - LittleGrow", fontWeight = FontWeight.SemiBold)   
-                Text("版本 ${BuildConfig.VERSION_NAME}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (currentCategory != null) {
+                    IconButton(onClick = { currentCategory = null }) {
+                        Icon(Icons.Rounded.ArrowBack, contentDescription = "返回", tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
                 Text(
-                    "离线记录、智能默认值、成长曲线、疫苗计划、自动备份等核心功能永久免费。",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
+                    currentCategory?.title ?: "设置",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }
+        Spacer(modifier = Modifier.height(16.dp))
 
-        errorText?.let { message ->
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                ElevatedCard(modifier = Modifier.padding(horizontal = 16.dp)) { 
-                    Text(
-                        message,
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.error,
-                    )
+        AnimatedContent(
+            targetState = currentCategory,
+            label = "SettingsTransition",
+            transitionSpec = {
+                fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+            }
+        ) { category ->
+            LazyColumn(
+                contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding() + 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                if (category == null) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            SettingsCategory.entries.forEach { cat ->
+                                ElevatedCard(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                    onClick = { currentCategory = cat },
+                                    shape = RoundedCornerShape(24.dp)
+                                ) {
+                                    ListItem(
+                                        headlineContent = { Text(cat.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) },
+                                        leadingContent = { 
+                                            Box(
+                                                modifier = Modifier.size(48.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(cat.icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer) 
+                                            }
+                                        },
+                                        trailingContent = { Icon(Icons.Rounded.ChevronRight, contentDescription = "进入", tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
+                                        modifier = Modifier.padding(vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (errorText != null) {
+                        item {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            ElevatedCard(modifier = Modifier.padding(horizontal = 16.dp)) { 
+                                Text(
+                                    errorText!!,
+                                    modifier = Modifier.padding(16.dp),
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    item {
+                        when (category) {
+                            SettingsCategory.PROFILE -> {
+                                __PROFILE_CONTENT__
+                            }
+                            SettingsCategory.NOTIFICATIONS -> {
+                                __NOTIFICATIONS_CONTENT__
+                            }
+                            SettingsCategory.APPEARANCE -> {
+                                __APPEARANCE_CONTENT__
+                            }
+                            SettingsCategory.DATA -> {
+                                __DATA_CONTENT__
+                            }
+                            SettingsCategory.MODULES -> {
+                                __MODULES_CONTENT__
+                            }
+                            SettingsCategory.ABOUT -> {
+                                __ABOUT_CONTENT__
+                            }
+                        }
+                    }
                 }
             }
         }
     }
-}
+"""
 
-@Composable
-private fun SettingsSectionTitle(title: String) {
-    Row(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(width = 4.dp, height = 16.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.primary))
-        Spacer(modifier = Modifier.size(8.dp))
-        Text(
-            text = title,
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-    }
-}
+new_lazy_column = new_lazy_column.replace("__NOTIFICATIONS_CONTENT__", notif_content)
+new_lazy_column = new_lazy_column.replace("__PROFILE_CONTENT__", prof_content)
+new_lazy_column = new_lazy_column.replace("__APPEARANCE_CONTENT__", app_content)
+new_lazy_column = new_lazy_column.replace("__DATA_CONTENT__", data_content)
+new_lazy_column = new_lazy_column.replace("__MODULES_CONTENT__", mod_content)
+new_lazy_column = new_lazy_column.replace("__ABOUT_CONTENT__", about_content)
 
-@Composable
-private fun NotificationListItem(
-    title: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    ListItem(
-        headlineContent = { Text(title) },
-        trailingContent = { Switch(checked = checked, onCheckedChange = onCheckedChange) },
-        modifier = Modifier.clickable { onCheckedChange(!checked) }.semantics { role = Role.Switch },
-        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent)
-    )
-}
-
-private fun handleNotificationSwitch(
-    enabled: Boolean,
-    granted: Boolean,
-    launcher: (String) -> Unit,
-    onEnable: () -> Unit,
-    onDisable: () -> Unit,
-) {
-    if (!enabled) {
-        onDisable()
-    } else if (granted) {
-        onEnable()
-    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        launcher(Manifest.permission.POST_NOTIFICATIONS)
-    }
-}
-
-@Composable
-private fun ThemeStyleCard(
-    theme: AppTheme,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val preview = theme.previewColors()
-    val borderColor = if (selected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
-    }
-    val containerColor = if (selected) {
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-    } else {
-        MaterialTheme.colorScheme.surface
-    }
-    val scale by animateFloatAsState(if (selected) 1.05f else 1f, label = "scale")
-
-    Surface(
-        modifier = modifier
-            .scale(scale)
-            .clip(RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        color = containerColor,
-        border = BorderStroke(2.dp, borderColor),
-        tonalElevation = if (selected) 4.dp else 0.dp,
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box {
-                ThemePreviewStrip(preview = preview)
-                if (selected) {
-                    Icon(
-                        Icons.Rounded.CheckCircle,
-                        contentDescription = "已选中",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
-                    )
-                }
-            }
-            Text(theme.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text(
-                text = themeStyleDescription(theme),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun ThemePreviewStrip(preview: ThemePreviewColors) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(68.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(preview.background),
-    ) {
-        // Mock Mini UI inside preview
-        Column(
-            modifier = Modifier.fillMaxSize().padding(6.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Box(modifier = Modifier.size(width = 40.dp, height = 8.dp).background(preview.primary, RoundedCornerShape(4.dp)))
-                ThemeColorDot(preview.primary)
-            }
-            Box(modifier = Modifier.fillMaxWidth().height(24.dp).background(preview.surfaceVariant, RoundedCornerShape(4.dp)))
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                ThemeColorBar(color = preview.secondary.copy(alpha = 0.5f), modifier = Modifier.weight(1f))
-                ThemeColorBar(color = preview.tertiary.copy(alpha = 0.5f), modifier = Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-@Composable
-private fun ThemeColorDot(color: Color) {
-    Box(
-        modifier = Modifier
-            .size(14.dp)
-            .clip(CircleShape)
-            .background(color),
-    )
-}
-
-@Composable
-private fun ThemeColorBar(
-    color: Color,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .height(12.dp)
-            .clip(RoundedCornerShape(999.dp))
-            .background(color),
-    )
-}
-
-private fun themeStyleDescription(theme: AppTheme): String = when (theme) {     
-    AppTheme.EARTHY -> "草木和蜂蜜色，日常稳重。"
-    AppTheme.PEACH -> "奶油暖桃色，柔和温馨。"
-    AppTheme.MINT -> "清透薄荷色，层次轻盈。"
-    AppTheme.LAVENDER -> "灰紫雾面色，安静沉稳。"
-}
-'''
+content = content[:lazy_column_start] + new_lazy_column + "\n" + content[settings_screen_end:]
 
 with open('app/src/main/java/com/littlegrow/app/ui/screens/SettingsScreen.kt', 'w', encoding='utf-8') as f:
-    f.write(settings_code)
+    f.write(content)
+
+print("Settings refactored successfully.")

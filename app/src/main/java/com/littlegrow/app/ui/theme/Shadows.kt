@@ -10,7 +10,7 @@ import androidx.compose.ui.unit.dp
 fun Modifier.softShadow(
     elevation: Dp = 12.dp,
     shape: Shape = Shapes.large,
-    color: Color = Color.Black.copy(alpha = 0.04f)
+    color: Color = Color(0xFF825600).copy(alpha = 0.05f)
 ): Modifier = this.shadow(
     elevation = elevation,
     shape = shape,

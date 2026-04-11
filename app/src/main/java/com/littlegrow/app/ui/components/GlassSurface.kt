@@ -8,6 +8,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -26,13 +27,15 @@ val LocalGlassHazeState = compositionLocalOf<HazeState?> { null }
 @Composable
 fun GlassSurface(
     modifier: Modifier = Modifier,
-    alpha: Float = 0.68f,
+    alpha: Float = 0.70f,
     shape: Shape = RoundedCornerShape(24.dp),
     tintColor: Color = MaterialTheme.colorScheme.surface,
     accentColor: Color = MaterialTheme.colorScheme.primary,
     borderAlpha: Float = 0.18f,
     highlightAlpha: Float = 0.16f,
     shadowElevation: Dp = 18.dp,
+    clipHazeToShape: Boolean = false,
+    expandHazeBounds: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val isDark = isSystemInDarkTheme()
@@ -50,7 +53,7 @@ fun GlassSurface(
     val hazeStyle = HazeStyle(
         backgroundColor = Color.Transparent,
         tint = HazeTint(hazeTint),
-        blurRadius = 36.dp,
+        blurRadius = 24.dp,
         noiseFactor = if (isDark) 0.06f else 0.035f,
         fallbackTint = HazeTint(fallbackTint),
     )
@@ -68,6 +71,10 @@ fun GlassSurface(
             style = hazeStyle,
         ) {
             blurEnabled = true
+            if (clipHazeToShape) {
+                blurredEdgeTreatment = BlurredEdgeTreatment(shape)
+            }
+            expandLayerBounds = expandHazeBounds
         }
     } else {
         Modifier
@@ -79,7 +86,7 @@ fun GlassSurface(
             .softShadow(elevation = shadowElevation, shape = shape, color = shadowColor),
         shape = shape,
         color = Color.Transparent,
-        border = BorderStroke(0.8.dp, Color.White.copy(alpha = resolvedBorderAlpha)),
+        border = BorderStroke(0.8.dp, Color(0xFFB0B2AF).copy(alpha = 0.15f)),
     ) {
         androidx.compose.foundation.layout.Box(
             modifier = Modifier.drawWithCache {

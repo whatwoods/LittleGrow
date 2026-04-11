@@ -2,6 +2,11 @@ package com.littlegrow.app
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoGraph
+import androidx.compose.material.icons.outlined.AutoGraph
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Timeline
+import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.BabyChangingStation
 import androidx.compose.material.icons.rounded.Bedtime
@@ -16,10 +21,12 @@ import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Timeline
 import androidx.compose.material.icons.rounded.Today
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -51,6 +58,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.WideNavigationRail
 import androidx.compose.material3.WideNavigationRailItem
@@ -93,6 +101,7 @@ import com.littlegrow.app.ui.screens.RecordsScreen
 import com.littlegrow.app.ui.screens.SettingsScreen
 import com.littlegrow.app.ui.screens.StageReportSheet
 import com.littlegrow.app.ui.screens.TimelineScreen
+import com.littlegrow.app.ui.theme.softShadow
 import com.littlegrow.app.ui.components.ExpressiveFloatingActionButton as FloatingActionButton
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
@@ -107,19 +116,24 @@ private data class FabMenuItem(
 private data class TopLevelDestination(
     val destination: AppDestination,
     val label: String,
-    val icon: ImageVector,
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector,
 )
 
 private val topLevelDestinations = listOf(
-    TopLevelDestination(AppDestination.HOME, "首页", Icons.Rounded.Home),
-    TopLevelDestination(AppDestination.RECORDS, "记录", Icons.Rounded.Today),
-    TopLevelDestination(AppDestination.GROWTH, "成长", Icons.Rounded.AutoGraph),
-    TopLevelDestination(AppDestination.TIMELINE, "时光", Icons.Rounded.Timeline),
-    TopLevelDestination(AppDestination.SETTINGS, "设置", Icons.Rounded.Settings),
+    TopLevelDestination(AppDestination.HOME, "首页", Icons.Rounded.Home, Icons.Outlined.Home),
+    TopLevelDestination(AppDestination.RECORDS, "记录", Icons.Rounded.Today, Icons.Outlined.Today),
+    TopLevelDestination(AppDestination.GROWTH, "成长", Icons.Rounded.AutoGraph, Icons.Outlined.AutoGraph),
+    TopLevelDestination(AppDestination.TIMELINE, "时光", Icons.Rounded.Timeline, Icons.Outlined.Timeline),
+)
+
+private val allDestinationsIncludingSettings = topLevelDestinations + listOf(
+    TopLevelDestination(AppDestination.SETTINGS, "设置", Icons.Rounded.Settings, Icons.Outlined.Settings),
 )
 
 private const val batchRecordRoutePattern = "batch_records/{tab}"
 private val mobileBottomBarReservedHeight = 108.dp
+private val mobileTopBarReservedHeight = 72.dp
 private val mobileFabBottomOffset = 90.dp
 
 private fun batchRecordRoute(tab: RecordTab): String = "${AppDestination.BATCH_RECORDS.route}/${tab.name}"
@@ -379,7 +393,8 @@ fun LittleGrowApp(
                 val layoutDirection = LocalLayoutDirection.current
                 val contentPadding = PaddingValues(
                     start = innerPadding.calculateStartPadding(layoutDirection),
-                    top = innerPadding.calculateTopPadding(),
+                    top = innerPadding.calculateTopPadding() +
+                        if (useNavigationRail) 0.dp else mobileTopBarReservedHeight,
                     end = innerPadding.calculateEndPadding(layoutDirection),
                     bottom = innerPadding.calculateBottomPadding() +
                         if (useNavigationRail) 0.dp else mobileBottomBarReservedHeight,
@@ -599,6 +614,10 @@ fun LittleGrowApp(
             }
 
             if (!useNavigationRail) {
+                GlassTopAppBar(
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    onSettingsClick = { navigateToTopLevel(AppDestination.SETTINGS) },
+                )
                 TopLevelShortNavigationBar(
                     modifier = Modifier.align(Alignment.BottomCenter),
                     currentRoute = currentRoute,
@@ -715,32 +734,82 @@ private fun TopLevelShortNavigationBar(
     currentRoute: String,
     onNavigate: (AppDestination) -> Unit,
 ) {
-    GlassSurface(
+    val shape = RoundedCornerShape(30.dp)
+    val colorScheme = MaterialTheme.colorScheme
+
+    Surface(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        alpha = 0.88f,
-        shape = RoundedCornerShape(30.dp),
-        accentColor = MaterialTheme.colorScheme.primary,
-        shadowElevation = 20.dp,
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .softShadow(
+                elevation = 20.dp,
+                shape = shape,
+                color = Color.Black.copy(alpha = 0.06f),
+            ),
+        shape = shape,
+        color = colorScheme.surface.copy(alpha = 0.94f),
+        border = BorderStroke(0.8.dp, colorScheme.outlineVariant.copy(alpha = 0.22f)),
+        tonalElevation = 0.dp,
     ) {
-        NavigationBar(
-            modifier = Modifier.fillMaxWidth(),
-            containerColor = Color.Transparent,
-            tonalElevation = 0.dp,
-        ) {
-            topLevelDestinations.forEach { destination ->
-                NavigationBarItem(
-                    selected = currentRoute == destination.destination.route,
-                    onClick = { onNavigate(destination.destination) },
-                    icon = { Icon(destination.icon, destination.label) },
-                    label = { Text(destination.label) },
-                    alwaysShowLabel = true,
-                    colors = NavigationBarItemDefaults.colors(
-                        indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+        Box(
+            modifier = Modifier.drawWithCache {
+                val softTint = Brush.linearGradient(
+                    colors = listOf(
+                        colorScheme.primary.copy(alpha = 0.05f),
+                        colorScheme.surface.copy(alpha = 0.02f),
+                        colorScheme.secondary.copy(alpha = 0.04f),
                     ),
+                    start = Offset.Zero,
+                    end = Offset(size.width, size.height),
                 )
+                val topSheen = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.16f),
+                        Color.Transparent,
+                    ),
+                    startY = 0f,
+                    endY = size.height * 0.45f,
+                )
+                onDrawBehind {
+                    drawRect(brush = softTint)
+                    drawRect(brush = topSheen)
+                }
+            },
+        ) {
+            NavigationBar(
+                modifier = Modifier.fillMaxWidth(),
+                containerColor = Color.Transparent,
+                tonalElevation = 0.dp,
+                windowInsets = WindowInsets(0, 0, 0, 0),
+            ) {
+                topLevelDestinations.forEach { destination ->
+                    val selected = currentRoute == destination.destination.route
+                    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+                    NavigationBarItem(
+                        selected = selected,
+                        onClick = {
+                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                            onNavigate(destination.destination)
+                        },
+                        icon = {
+                            androidx.compose.animation.Crossfade(
+                                targetState = selected,
+                                label = "Icon Crossfade"
+                            ) { isSelected ->
+                                Icon(
+                                    if (isSelected) destination.selectedIcon else destination.unselectedIcon,
+                                    contentDescription = null
+                                )
+                            }
+                        },
+                        label = { Text(destination.label) },
+                        alwaysShowLabel = true,
+                        colors = NavigationBarItemDefaults.colors(
+                            indicatorColor = colorScheme.primary.copy(alpha = 0.14f),
+                        ),
+                    )
+                }
             }
         }
     }
@@ -791,14 +860,71 @@ private fun TopLevelWideNavigationRail(
             }
         },
     ) {
-        topLevelDestinations.forEach { destination ->
+        allDestinationsIncludingSettings.forEach { destination ->
+            val selected = currentRoute == destination.destination.route
+            val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
             WideNavigationRailItem(
                 railExpanded = railExpanded,
-                selected = currentRoute == destination.destination.route,
-                onClick = { onNavigate(destination.destination) },
-                icon = { Icon(destination.icon, destination.label) },
+                selected = selected,
+                onClick = {
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                    onNavigate(destination.destination)
+                },
+                icon = {
+                    androidx.compose.animation.Crossfade(
+                        targetState = selected,
+                        label = "Icon Crossfade"
+                    ) { isSelected ->
+                        Icon(
+                            if (isSelected) destination.selectedIcon else destination.unselectedIcon,
+                            contentDescription = null
+                        )
+                    }
+                },
                 label = { Text(destination.label) },
             )
+        }
+    }
+}
+
+@Composable
+private fun GlassTopAppBar(
+    modifier: Modifier = Modifier,
+    onSettingsClick: () -> Unit,
+) {
+    GlassSurface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 0.dp),
+        alpha = 0.88f,
+        shape = RoundedCornerShape(bottomStart = 0.dp, bottomEnd = 0.dp),
+        accentColor = MaterialTheme.colorScheme.primary,
+        shadowElevation = 8.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = 20.dp,
+                    end = 12.dp,
+                    top = 40.dp,
+                    bottom = 12.dp,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = "长呀长",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            IconButton(onClick = onSettingsClick) {
+                Icon(
+                    imageVector = Icons.Rounded.Settings,
+                    contentDescription = "设置",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

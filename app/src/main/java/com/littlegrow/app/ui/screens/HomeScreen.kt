@@ -126,8 +126,8 @@ fun HomeScreen(
                             avatarPath = avatarPath,
                             contentDescription = "宝宝头像",
                             modifier = Modifier.size(72.dp),
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                            borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.84f),
+                            borderColor = Color.White.copy(alpha = 0.22f),
                         )
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -541,12 +541,12 @@ private fun SectionCard(
 
 @Composable
 private fun EmptyRecordCard(text: String) {
-    ElevatedCard(
+    GlassSurface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp)
+        alpha = 0.58f,
+        shape = MaterialTheme.shapes.large,
+        accentColor = MaterialTheme.colorScheme.secondary,
+        shadowElevation = 10.dp,
     ) {
         EmptyState(
             title = "暂无记录",

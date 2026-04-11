@@ -19,12 +19,22 @@ import androidx.compose.material.icons.rounded.Today
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
 import com.littlegrow.app.ui.components.GlassSurface
+import com.littlegrow.app.ui.components.LocalGlassHazeState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -35,10 +45,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ToggleFloatingActionButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ShortNavigationBar
-import androidx.compose.material3.ShortNavigationBarArrangement
-import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -58,8 +68,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -82,6 +94,8 @@ import com.littlegrow.app.ui.screens.SettingsScreen
 import com.littlegrow.app.ui.screens.StageReportSheet
 import com.littlegrow.app.ui.screens.TimelineScreen
 import com.littlegrow.app.ui.components.ExpressiveFloatingActionButton as FloatingActionButton
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.launch
 
 private data class FabMenuItem(
@@ -105,6 +119,8 @@ private val topLevelDestinations = listOf(
 )
 
 private const val batchRecordRoutePattern = "batch_records/{tab}"
+private val mobileBottomBarReservedHeight = 108.dp
+private val mobileFabBottomOffset = 90.dp
 
 private fun batchRecordRoute(tab: RecordTab): String = "${AppDestination.BATCH_RECORDS.route}/${tab.name}"
 
@@ -117,6 +133,7 @@ fun LittleGrowApp(
 ) {
     val configuration = LocalConfiguration.current
     val navController = rememberNavController()
+    val hazeState = rememberHazeState()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route ?: AppDestination.HOME.route
     val useNavigationRail = configuration.screenWidthDp >= 600
@@ -282,102 +299,112 @@ fun LittleGrowApp(
         )
     }
 
-    Scaffold(
-        snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState)
-        },
-        floatingActionButton = {
-            if (!useNavigationRail) {
-                var fabExpanded by rememberSaveable { mutableStateOf(false) }
+    CompositionLocalProvider(LocalGlassHazeState provides hazeState) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            AppBackdrop(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .hazeSource(hazeState),
+            )
 
-                val menuItems: List<FabMenuItem> = when (currentRoute) {
-                    AppDestination.HOME.route,
-                    AppDestination.RECORDS.route -> listOf(
-                        FabMenuItem("记录喂奶", Icons.Rounded.LocalDrink) { onQuickRecord(RecordTab.FEEDING) },
-                        FabMenuItem("记录睡眠", Icons.Rounded.Bedtime) { onQuickRecord(RecordTab.SLEEP) },
-                        FabMenuItem("记录尿布", Icons.Rounded.BabyChangingStation) { onQuickRecord(RecordTab.DIAPER) },
-                        FabMenuItem("健康记录", Icons.Rounded.MedicalServices) { onQuickRecord(RecordTab.MEDICAL) },
-                        FabMenuItem("记录活动", Icons.Rounded.DirectionsRun) { onQuickRecord(RecordTab.ACTIVITY) },
-                    )
-                    AppDestination.GROWTH.route -> listOf(
-                        FabMenuItem("添加生长记录", Icons.Rounded.Straighten) { showAddGrowthDialog = true },
-                    )
-                    AppDestination.TIMELINE.route -> listOf(
-                        FabMenuItem("添加里程碑", Icons.Rounded.EmojiEvents) { showAddMilestoneDialog = true },
-                    )
-                    else -> emptyList()
-                }
+            Scaffold(
+                containerColor = Color.Transparent,
+                snackbarHost = {
+                    SnackbarHost(hostState = snackbarHostState)
+                },
+                floatingActionButton = {
+                    if (!useNavigationRail) {
+                        var fabExpanded by rememberSaveable { mutableStateOf(false) }
 
-                val fabVisible = menuItems.isNotEmpty()
+                        val menuItems: List<FabMenuItem> = when (currentRoute) {
+                            AppDestination.HOME.route,
+                            AppDestination.RECORDS.route -> listOf(
+                                FabMenuItem("记录喂奶", Icons.Rounded.LocalDrink) { onQuickRecord(RecordTab.FEEDING) },
+                                FabMenuItem("记录睡眠", Icons.Rounded.Bedtime) { onQuickRecord(RecordTab.SLEEP) },
+                                FabMenuItem("记录尿布", Icons.Rounded.BabyChangingStation) { onQuickRecord(RecordTab.DIAPER) },
+                                FabMenuItem("健康记录", Icons.Rounded.MedicalServices) { onQuickRecord(RecordTab.MEDICAL) },
+                                FabMenuItem("记录活动", Icons.Rounded.DirectionsRun) { onQuickRecord(RecordTab.ACTIVITY) },
+                            )
+                            AppDestination.GROWTH.route -> listOf(
+                                FabMenuItem("添加生长记录", Icons.Rounded.Straighten) { showAddGrowthDialog = true },
+                            )
+                            AppDestination.TIMELINE.route -> listOf(
+                                FabMenuItem("添加里程碑", Icons.Rounded.EmojiEvents) { showAddMilestoneDialog = true },
+                            )
+                            else -> emptyList()
+                        }
 
-                LaunchedEffect(currentRoute) { fabExpanded = false }
+                        val fabVisible = menuItems.isNotEmpty()
 
-                FloatingActionButtonMenu(
-                    modifier = Modifier.animateFloatingActionButton(
-                        visible = fabVisible,
-                        alignment = Alignment.BottomEnd,
-                    ),
-                    expanded = fabExpanded,
-                    button = {
-                        ToggleFloatingActionButton(
-                            checked = fabExpanded,
-                            onCheckedChange = { fabExpanded = !fabExpanded },
+                        LaunchedEffect(currentRoute) { fabExpanded = false }
+
+                        FloatingActionButtonMenu(
+                            modifier = Modifier.animateFloatingActionButton(
+                                visible = fabVisible,
+                                alignment = Alignment.BottomEnd,
+                            )
+                                .padding(bottom = mobileFabBottomOffset),
+                            expanded = fabExpanded,
+                            button = {
+                                ToggleFloatingActionButton(
+                                    checked = fabExpanded,
+                                    onCheckedChange = { fabExpanded = !fabExpanded },
+                                ) {
+                                    val iconRotation by animateFloatAsState(
+                                        targetValue = if (fabExpanded) 45f else 0f,
+                                        label = "fab_rotation"
+                                    )
+                                    Icon(
+                                        imageVector = if (fabExpanded) Icons.Rounded.Add else Icons.Rounded.Add,
+                                        contentDescription = if (fabExpanded) "收起" else "添加",
+                                        modifier = Modifier.graphicsLayer(rotationZ = iconRotation)
+                                    )
+                                }
+                            }
                         ) {
-                            val iconRotation by animateFloatAsState(
-                                targetValue = if (fabExpanded) 45f else 0f,
-                                label = "fab_rotation"
-                            )
-                            Icon(
-                                imageVector = if (fabExpanded) Icons.Rounded.Add else Icons.Rounded.Add,
-                                contentDescription = if (fabExpanded) "收起" else "添加",
-                                modifier = Modifier.graphicsLayer(rotationZ = iconRotation)
-                            )
+                            menuItems.forEach { item ->
+                                FloatingActionButtonMenuItem(
+                                    onClick = {
+                                        fabExpanded = false
+                                        item.onClick()
+                                    },
+                                    icon = { Icon(item.icon, contentDescription = null) },
+                                    text = { Text(item.label) }
+                                )
+                            }
                         }
                     }
-                ) {
-                    menuItems.forEach { item ->
-                        FloatingActionButtonMenuItem(
-                            onClick = {
-                                fabExpanded = false
-                                item.onClick()
-                            },
-                            icon = { Icon(item.icon, contentDescription = null) },
-                            text = { Text(item.label) }
+                },
+            ) { innerPadding ->
+                val layoutDirection = LocalLayoutDirection.current
+                val contentPadding = PaddingValues(
+                    start = innerPadding.calculateStartPadding(layoutDirection),
+                    top = innerPadding.calculateTopPadding(),
+                    end = innerPadding.calculateEndPadding(layoutDirection),
+                    bottom = innerPadding.calculateBottomPadding() +
+                        if (useNavigationRail) 0.dp else mobileBottomBarReservedHeight,
+                )
+                Row(modifier = Modifier.fillMaxSize()) {
+                    if (useNavigationRail) {
+                        TopLevelWideNavigationRail(
+                            currentRoute = currentRoute,
+                            railState = railState,
+                            showQuickRecordAction = showQuickRecordAction,
+                            onQuickRecord = { showQuickRecordSheet = true },
+                            onNavigate = ::navigateToTopLevel,
                         )
                     }
-                }
-            }
-        },
-        bottomBar = {
-            if (!useNavigationRail) {
-                TopLevelShortNavigationBar(
-                    currentRoute = currentRoute,
-                    onNavigate = ::navigateToTopLevel,
-                )
-            }
-        },
-    ) { innerPadding ->
-        Row(modifier = Modifier.fillMaxSize()) {
-            if (useNavigationRail) {
-                TopLevelWideNavigationRail(
-                    currentRoute = currentRoute,
-                    railState = railState,
-                    showQuickRecordAction = showQuickRecordAction,
-                    onQuickRecord = { showQuickRecordSheet = true },
-                    onNavigate = ::navigateToTopLevel,
-                )
-            }
 
-            Box(modifier = Modifier.weight(1f)) {
-                val spatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntOffset>()
-                NavHost(
-                    navController = navController,
-                    startDestination = AppDestination.HOME.route,
-                    enterTransition = { slideIntoContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = spatialSpec) },
-                    exitTransition = { slideOutOfContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = spatialSpec) },
-                    popEnterTransition = { slideIntoContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = spatialSpec) },
-                    popExitTransition = { slideOutOfContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = spatialSpec) },
-                ) {
+                    Box(modifier = Modifier.weight(1f).hazeSource(hazeState)) {
+                        val spatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntOffset>()
+                        NavHost(
+                            navController = navController,
+                            startDestination = AppDestination.HOME.route,
+                            enterTransition = { slideIntoContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = spatialSpec) },
+                            exitTransition = { slideOutOfContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = spatialSpec) },
+                            popEnterTransition = { slideIntoContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = spatialSpec) },
+                            popExitTransition = { slideOutOfContainer(androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = spatialSpec) },
+                        ) {
             composable(AppDestination.HOME.route) {
                 HomeScreen(
                     summary = summary,
@@ -390,7 +417,7 @@ fun LittleGrowApp(
                     vaccines = vaccines,
                     caregivers = caregivers,
                     caregiverFilter = homeCaregiverFilter,
-                    contentPadding = innerPadding,
+                    contentPadding = contentPadding,
                     onCaregiverFilterChange = viewModel::setHomeCaregiverFilter,
                     onDismissGuide = viewModel::dismissMonthlyGuide,
                     onOpenRecords = { tab ->
@@ -437,7 +464,7 @@ fun LittleGrowApp(
                     breastfeedingTimer = breastfeedingTimer,
                     pendingQuickAction = pendingQuickAction,
                     feedingFormDefaults = feedingFormDefaults,
-                    contentPadding = innerPadding,
+                    contentPadding = contentPadding,
                     onSelectTab = viewModel::selectRecordTab,
                     onConsumeQuickAction = viewModel::consumePendingRecordQuickAction,
                     onStartBreastfeedingTimer = viewModel::startBreastfeedingTimer,
@@ -472,7 +499,7 @@ fun LittleGrowApp(
                     profile = profile,
                     growthRecords = growthRecords,
                     vaccines = vaccines,
-                    contentPadding = innerPadding,
+                    contentPadding = contentPadding,
                     onAddGrowth = viewModel::addGrowth,
                     onUpdateGrowth = viewModel::updateGrowth,
                     onDeleteGrowth = viewModel::deleteGrowth,
@@ -489,7 +516,7 @@ fun LittleGrowApp(
                     diapers = diapers,
                     growthRecords = growthRecords,
                     milestones = milestones,
-                    contentPadding = innerPadding,
+                    contentPadding = contentPadding,
                     onAddMilestone = viewModel::addMilestone,
                     onUpdateMilestone = viewModel::updateMilestone,
                     onDeleteMilestone = viewModel::deleteMilestone,
@@ -515,7 +542,7 @@ fun LittleGrowApp(
                     autoBackupFrequency = autoBackupFrequency,
                     exportMessage = exportMessage,
                     isExporting = isExporting,
-                    contentPadding = innerPadding,
+                    contentPadding = contentPadding,
                     onSaveProfile = viewModel::saveProfile,
                     onThemeModeChange = viewModel::setThemeMode,
                     onAppThemeChange = viewModel::setAppTheme,
@@ -549,7 +576,7 @@ fun LittleGrowApp(
                     ?: recordTab
                 BatchRecordScreen(
                     recordTab = tab,
-                    contentPadding = innerPadding,
+                    contentPadding = contentPadding,
                     onAddFeeding = viewModel::addFeeding,
                     onAddSleep = viewModel::addSleep,
                     onAddDiaper = viewModel::addDiaper,
@@ -562,32 +589,157 @@ fun LittleGrowApp(
             composable(AppDestination.MEDICAL_SUMMARY.route) {
                 MedicalSummaryScreen(
                     summary = medicalSummary,
-                    contentPadding = innerPadding,
+                    contentPadding = contentPadding,
                     onGenerate = viewModel::buildMedicalSummary,
                 )
             }
+                        }
+                    }
                 }
+            }
+
+            if (!useNavigationRail) {
+                TopLevelShortNavigationBar(
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    currentRoute = currentRoute,
+                    onNavigate = ::navigateToTopLevel,
+                )
             }
         }
     }
 }
 
 @Composable
+private fun AppBackdrop(modifier: Modifier = Modifier) {
+    val colorScheme = MaterialTheme.colorScheme
+    Box(
+        modifier = modifier.drawWithCache {
+            val stripeWidth = 1.5.dp.toPx()
+            val stripeGap = 72.dp.toPx()
+            val stripeTilt = size.height * 0.34f
+            val dotRadius = size.minDimension * 0.018f
+            val baseGradient = Brush.verticalGradient(
+                colors = listOf(
+                    colorScheme.background,
+                    colorScheme.surface.copy(alpha = 0.9f),
+                    colorScheme.surfaceContainerLowest.copy(alpha = 0.84f),
+                ),
+            )
+            val prismWash = Brush.linearGradient(
+                colors = listOf(
+                    colorScheme.tertiary.copy(alpha = 0.12f),
+                    Color.Transparent,
+                    colorScheme.primary.copy(alpha = 0.14f),
+                ),
+                start = Offset(0f, size.height),
+                end = Offset(size.width, 0f),
+            )
+            val topHalo = Brush.radialGradient(
+                colors = listOf(
+                    colorScheme.primary.copy(alpha = 0.28f),
+                    Color.Transparent,
+                ),
+                center = Offset(size.width * 0.15f, size.height * 0.1f),
+                radius = size.minDimension * 0.46f,
+            )
+            val middleGlow = Brush.radialGradient(
+                colors = listOf(
+                    colorScheme.secondary.copy(alpha = 0.18f),
+                    Color.Transparent,
+                ),
+                center = Offset(size.width * 0.82f, size.height * 0.42f),
+                radius = size.minDimension * 0.4f,
+            )
+            val bottomGlow = Brush.radialGradient(
+                colors = listOf(
+                    colorScheme.tertiary.copy(alpha = 0.22f),
+                    Color.Transparent,
+                ),
+                center = Offset(size.width * 0.45f, size.height * 0.92f),
+                radius = size.minDimension * 0.42f,
+            )
+            val lightBand = Brush.linearGradient(
+                colors = listOf(
+                    Color.Transparent,
+                    Color.White.copy(alpha = 0.18f),
+                    Color.Transparent,
+                ),
+                start = Offset(size.width * 0.02f, size.height * 0.08f),
+                end = Offset(size.width * 0.9f, size.height * 0.64f),
+            )
+            onDrawBehind {
+                drawRect(brush = baseGradient)
+                drawRect(brush = prismWash)
+                drawRect(brush = topHalo)
+                drawRect(brush = middleGlow)
+                drawRect(brush = bottomGlow)
+                var stripeX = -stripeTilt
+                while (stripeX < size.width + stripeTilt) {
+                    drawLine(
+                        color = Color.White.copy(alpha = 0.05f),
+                        start = Offset(stripeX, 0f),
+                        end = Offset(stripeX + stripeTilt, size.height),
+                        strokeWidth = stripeWidth,
+                    )
+                    stripeX += stripeGap
+                }
+                drawCircle(
+                    color = colorScheme.primary.copy(alpha = 0.14f),
+                    radius = dotRadius * 2.8f,
+                    center = Offset(size.width * 0.18f, size.height * 0.3f),
+                )
+                drawCircle(
+                    color = colorScheme.secondary.copy(alpha = 0.12f),
+                    radius = dotRadius * 2.2f,
+                    center = Offset(size.width * 0.74f, size.height * 0.26f),
+                )
+                drawCircle(
+                    color = colorScheme.tertiary.copy(alpha = 0.14f),
+                    radius = dotRadius * 3.1f,
+                    center = Offset(size.width * 0.58f, size.height * 0.76f),
+                )
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.1f),
+                    radius = dotRadius * 1.6f,
+                    center = Offset(size.width * 0.84f, size.height * 0.68f),
+                )
+                drawRect(brush = lightBand)
+            }
+        },
+    )
+}
+
+@Composable
 private fun TopLevelShortNavigationBar(
+    modifier: Modifier = Modifier,
     currentRoute: String,
     onNavigate: (AppDestination) -> Unit,
 ) {
-    GlassSurface {
-        ShortNavigationBar(
-            arrangement = ShortNavigationBarArrangement.EqualWeight,
-            containerColor = Color.Transparent
+    GlassSurface(
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        alpha = 0.88f,
+        shape = RoundedCornerShape(30.dp),
+        accentColor = MaterialTheme.colorScheme.primary,
+        shadowElevation = 20.dp,
+    ) {
+        NavigationBar(
+            modifier = Modifier.fillMaxWidth(),
+            containerColor = Color.Transparent,
+            tonalElevation = 0.dp,
         ) {
             topLevelDestinations.forEach { destination ->
-                ShortNavigationBarItem(
+                NavigationBarItem(
                     selected = currentRoute == destination.destination.route,
                     onClick = { onNavigate(destination.destination) },
                     icon = { Icon(destination.icon, destination.label) },
                     label = { Text(destination.label) },
+                    alwaysShowLabel = true,
+                    colors = NavigationBarItemDefaults.colors(
+                        indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                    ),
                 )
             }
         }
@@ -650,4 +802,3 @@ private fun TopLevelWideNavigationRail(
         }
     }
 }
-

@@ -60,6 +60,7 @@ import com.littlegrow.app.ui.PhotoPreviewCard
 import com.littlegrow.app.ui.components.AdaptiveActionBar
 import com.littlegrow.app.ui.components.AdaptiveActionBarItem
 import com.littlegrow.app.ui.components.AdaptiveActionBarItemStyle
+import com.littlegrow.app.ui.components.GlassSurface
 import com.littlegrow.app.ui.components.ExpressiveOutlinedButton as OutlinedButton
 import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
 import com.littlegrow.app.ui.formatDate
@@ -635,10 +636,12 @@ private fun RecordActionRow(onOpenBatchRecord: () -> Unit, onOpenHandoverSummary
 
 @Composable
 fun EmptyRecordCard(text: String, modifier: Modifier = Modifier) {
-    Surface(
+    GlassSurface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shape = MaterialTheme.shapes.large
+        alpha = 0.58f,
+        shape = MaterialTheme.shapes.large,
+        accentColor = MaterialTheme.colorScheme.secondary,
+        shadowElevation = 10.dp,
     ) {
         Column(
             modifier = Modifier.padding(32.dp),

@@ -81,6 +81,7 @@ import com.littlegrow.app.ui.PhotoActionRow
 import com.littlegrow.app.ui.components.AdaptiveActionBar
 import com.littlegrow.app.ui.components.AdaptiveActionBarItem
 import com.littlegrow.app.ui.components.AdaptiveActionBarItemStyle
+import com.littlegrow.app.ui.components.GlassSurface
 import com.littlegrow.app.ui.components.ExpressiveElevatedButton as ElevatedButton
 import com.littlegrow.app.ui.components.ExpressiveFilterChip as FilterChip      
 import com.littlegrow.app.ui.components.ExpressiveOutlinedButton as OutlinedButton
@@ -211,12 +212,22 @@ fun SettingsScreen(
         ),
     ) {
         item {
-            Text(
-                "设置",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
+            GlassSurface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                alpha = 0.82f,
+                shape = RoundedCornerShape(28.dp),
+                accentColor = MaterialTheme.colorScheme.secondary,
+                shadowElevation = 20.dp,
+            ) {
+                Text(
+                    "设置",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                )
+            }
             Spacer(modifier = Modifier.height(16.dp))
         }
 
@@ -299,8 +310,8 @@ fun SettingsScreen(
                             avatarPath = avatarAttachment.photoPath,
                             contentDescription = "宝宝头像",
                             modifier = Modifier.size(72.dp),
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f),
-                            borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.84f),
+                            borderColor = Color.White.copy(alpha = 0.22f),
                         )
                         PhotoActionRow(
                             title = "头像",
@@ -703,50 +714,63 @@ private fun ThemeStyleCard(
     modifier: Modifier = Modifier,
 ) {
     val preview = theme.previewColors()
-    val borderColor = if (selected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
-    }
-    val containerColor = if (selected) {
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-    } else {
-        MaterialTheme.colorScheme.surface
-    }
     val scale by animateFloatAsState(if (selected) 1.05f else 1f, label = "scale")
+    val shape = RoundedCornerShape(20.dp)
+    val cardModifier = modifier
+        .scale(scale)
+        .clip(shape)
+        .clickable(onClick = onClick)
 
-    Surface(
-        modifier = modifier
-            .scale(scale)
-            .clip(RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        color = containerColor,
-        border = BorderStroke(2.dp, borderColor),
-        tonalElevation = if (selected) 4.dp else 0.dp,
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+    if (selected) {
+        GlassSurface(
+            modifier = cardModifier,
+            alpha = 0.72f,
+            shape = shape,
+            tintColor = MaterialTheme.colorScheme.primaryContainer,
+            accentColor = preview.primary,
+            shadowElevation = 16.dp,
         ) {
-            Box {
-                ThemePreviewStrip(preview = preview)
-                if (selected) {
-                    Icon(
-                        Icons.Rounded.CheckCircle,
-                        contentDescription = "已选中",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
-                    )
-                }
-            }
-            Text(theme.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text(
-                text = themeStyleDescription(theme),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            ThemeStyleCardContent(theme = theme, preview = preview, selected = true)
         }
+    } else {
+        Surface(
+            modifier = cardModifier,
+            shape = shape,
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+        ) {
+            ThemeStyleCardContent(theme = theme, preview = preview, selected = false)
+        }
+    }
+}
+
+@Composable
+private fun ThemeStyleCardContent(
+    theme: AppTheme,
+    preview: ThemePreviewColors,
+    selected: Boolean,
+) {
+    Column(
+        modifier = Modifier.padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box {
+            ThemePreviewStrip(preview = preview)
+            if (selected) {
+                Icon(
+                    Icons.Rounded.CheckCircle,
+                    contentDescription = "已选中",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
+                )
+            }
+        }
+        Text(theme.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text(
+            text = themeStyleDescription(theme),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

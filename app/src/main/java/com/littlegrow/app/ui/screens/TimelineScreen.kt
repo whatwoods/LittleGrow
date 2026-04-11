@@ -72,6 +72,7 @@ import com.littlegrow.app.data.SleepEntity
 import com.littlegrow.app.ui.NativeDatePickerField
 import com.littlegrow.app.ui.PhotoActionRow
 import com.littlegrow.app.ui.PhotoPreviewCard
+import com.littlegrow.app.ui.components.GlassSurface
 import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
 import com.littlegrow.app.ui.dateFormatter
 import com.littlegrow.app.ui.formatDate
@@ -240,12 +241,21 @@ fun TimelineScreen(
             if (stageReports.isNotEmpty() || monthlyGuides.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(32.dp))
-                    Box(modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)).fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    GlassSurface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        alpha = 0.58f,
+                        shape = MaterialTheme.shapes.large,
+                        accentColor = MaterialTheme.colorScheme.primary,
+                        shadowElevation = 10.dp,
+                    ) {
                         Text(
                             "发展指南与总结",
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                 }

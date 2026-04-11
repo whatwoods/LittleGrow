@@ -49,6 +49,7 @@ import com.littlegrow.app.data.Gender
 import com.littlegrow.app.ui.BabyAvatar
 import com.littlegrow.app.ui.PhotoActionRow
 import com.littlegrow.app.ui.NativeDatePickerField
+import com.littlegrow.app.ui.components.GlassSurface
 import com.littlegrow.app.ui.components.ExpressiveButton as Button
 import com.littlegrow.app.ui.components.ExpressiveFilterChip as FilterChip
 import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
@@ -151,7 +152,7 @@ fun OnboardingScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.78f))
             .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
@@ -215,67 +216,79 @@ fun OnboardingScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp)
+                .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Page indicators
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
+            GlassSurface(
+                modifier = Modifier.fillMaxWidth(),
+                alpha = 0.84f,
+                shape = RoundedCornerShape(32.dp),
+                accentColor = MaterialTheme.colorScheme.primary,
+                shadowElevation = 22.dp,
             ) {
-                repeat(TOTAL_PAGES) { index ->
-                    val isSelected = currentPage == index
-                    val width by animateDpAsState(
-                        targetValue = if (isSelected) 24.dp else 8.dp,
-                        animationSpec = spring(dampingRatio = 0.7f),
-                        label = "indicator_width",
-                    )
-                    val color by animateColorAsState(
-                        targetValue = if (isSelected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        },
-                        animationSpec = spring(dampingRatio = 0.7f),
-                        label = "indicator_color",
-                    )
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 4.dp)
-                            .width(width)
-                            .height(8.dp)
-                            .clip(CircleShape)
-                            .background(color),
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Action button
-            Button(
-                enabled = !isCompleting,
-                onClick = {
-                    if (isLastPage) {
-                        tryComplete()
-                    } else {
-                        if (isCompleting) {
-                            return@Button
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        repeat(TOTAL_PAGES) { index ->
+                            val isSelected = currentPage == index
+                            val width by animateDpAsState(
+                                targetValue = if (isSelected) 24.dp else 8.dp,
+                                animationSpec = spring(dampingRatio = 0.7f),
+                                label = "indicator_width",
+                            )
+                            val color by animateColorAsState(
+                                targetValue = if (isSelected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                },
+                                animationSpec = spring(dampingRatio = 0.7f),
+                                label = "indicator_color",
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 4.dp)
+                                    .width(width)
+                                    .height(8.dp)
+                                    .clip(CircleShape)
+                                    .background(color),
+                            )
                         }
-                        navigateToPage(currentPage + 1)
                     }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Text(
-                    text = if (isLastPage) "开始使用" else "下一步",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                )
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Button(
+                        enabled = !isCompleting,
+                        onClick = {
+                            if (isLastPage) {
+                                tryComplete()
+                            } else {
+                                if (isCompleting) {
+                                    return@Button
+                                }
+                                navigateToPage(currentPage + 1)
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Text(
+                            text = if (isLastPage) "开始使用" else "下一步",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                }
             }
         }
     }
@@ -342,92 +355,104 @@ private fun ProfileSetupPage(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Column(
-            modifier = Modifier.widthIn(max = 480.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            BabyAvatar(
-            avatarPath = avatarPath,
-            contentDescription = "宝宝头像",
+        GlassSurface(
             modifier = Modifier
-                .size(108.dp)
-                .clip(CircleShape),
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-            borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "填写宝宝信息",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "这些信息用于生成成长曲线和疫苗计划",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(modifier = Modifier.height(20.dp))
-        PhotoActionRow(
-            title = "头像",
-            removeLabel = "移除头像",
-            hasPhoto = avatarPath != null,
-            onTakePhoto = onTakeAvatar,
-            onPickPhoto = onPickAvatar,
-            onRemovePhoto = onRemoveAvatar,
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-
-        OutlinedTextField(
-            value = name,
-            onValueChange = onNameChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("宝宝昵称") },
-            singleLine = true,
-            shape = RoundedCornerShape(12.dp),
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-
-        NativeDatePickerField(
-            value = birthday,
-            onValueChange = onBirthdayChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = "出生日期",
-            supportingText = "点击选择日期",
-            maxDate = LocalDate.now(),
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "性别",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .widthIn(max = 480.dp)
+                .fillMaxWidth(),
+            alpha = 0.7f,
+            shape = RoundedCornerShape(28.dp),
+            accentColor = MaterialTheme.colorScheme.primary,
+            shadowElevation = 18.dp,
         ) {
-            Gender.entries.forEach { entry ->
-                FilterChip(
-                    selected = entry == gender,
-                    onClick = { onGenderChange(entry) },
-                    label = { Text(entry.label) },
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                BabyAvatar(
+                    avatarPath = avatarPath,
+                    contentDescription = "宝宝头像",
+                    modifier = Modifier
+                        .size(108.dp)
+                        .clip(CircleShape),
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.84f),
+                    borderColor = Color.White.copy(alpha = 0.22f),
                 )
-            }
-        }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "填写宝宝信息",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "这些信息用于生成成长曲线和疫苗计划",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+                PhotoActionRow(
+                    title = "头像",
+                    removeLabel = "移除头像",
+                    hasPhoto = avatarPath != null,
+                    onTakePhoto = onTakeAvatar,
+                    onPickPhoto = onPickAvatar,
+                    onRemovePhoto = onRemoveAvatar,
+                )
+                Spacer(modifier = Modifier.height(24.dp))
 
-        errorText?.let {
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = it,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("宝宝昵称") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                NativeDatePickerField(
+                    value = birthday,
+                    onValueChange = onBirthdayChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = "出生日期",
+                    supportingText = "点击选择日期",
+                    maxDate = LocalDate.now(),
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "性别",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Gender.entries.forEach { entry ->
+                        FilterChip(
+                            selected = entry == gender,
+                            onClick = { onGenderChange(entry) },
+                            label = { Text(entry.label) },
+                        )
+                    }
+                }
+
+                errorText?.let {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
         }
     }
 }

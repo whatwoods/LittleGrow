@@ -2,11 +2,17 @@ package com.littlegrow.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,10 +42,13 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.WavingHand
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -52,10 +61,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -75,34 +84,21 @@ import com.littlegrow.app.ui.NativeDatePickerField
 import com.littlegrow.app.ui.PhotoActionRow
 import com.littlegrow.app.ui.PhotoPreviewCard
 import com.littlegrow.app.ui.components.GlassSurface
-import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
+import com.littlegrow.app.ui.components.staggeredFadeSlideIn
 import com.littlegrow.app.ui.theme.Spacing
-import com.littlegrow.app.ui.theme.softShadow
+import com.littlegrow.app.ui.theme.semanticColors
+import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
 import com.littlegrow.app.ui.dateFormatter
 import com.littlegrow.app.ui.formatDate
 import com.littlegrow.app.ui.rememberManagedPhotoAttachment
 import java.time.Duration
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-// Timeline layout constants
-private val TimelineNodeLineX = 20.dp
-private val TimelineNodeSize = 32.dp
-private val TimelineGap = 24.dp
-private val CardShape = RoundedCornerShape(16.dp)
+val TimelineLineOffset = 24.dp
+val TimelineContentStart = 48.dp
 
-/** Decorative gradient pairs for carousel placeholder backgrounds. */
-private val carouselPlaceholderColors = listOf(
-    Color(0xFFFFE0B2) to Color(0xFFF57C00),
-    Color(0xFFB3E5FC) to Color(0xFF0288D1),
-    Color(0xFFC8E6C9) to Color(0xFF388E3C),
-    Color(0xFFF8BBD0) to Color(0xFFC2185B),
-    Color(0xFFD1C4E9) to Color(0xFF7B1FA2),
-)
-
-private val carouselDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy.MM.dd")
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimelineScreen(
     profile: BabyProfile?,
@@ -111,7 +107,9 @@ fun TimelineScreen(
     diapers: List<DiaperEntity>,
     growthRecords: List<GrowthEntity>,
     milestones: List<MilestoneEntity>,
+    refreshing: Boolean,
     contentPadding: PaddingValues,
+    onRefresh: () -> Unit,
     onAddMilestone: (MilestoneDraft) -> Unit,
     onUpdateMilestone: (Long, MilestoneDraft) -> Unit,
     onDeleteMilestone: (Long) -> Unit,
@@ -136,100 +134,137 @@ fun TimelineScreen(
 
     val totalMilestones = milestones.size
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            contentPadding = PaddingValues(
-                top = contentPadding.calculateTopPadding() + 16.dp,
-                bottom = contentPadding.calculateBottomPadding() + 96.dp,
-            ),
-            modifier = Modifier.semantics { contentDescription = "时间线" }
-        ) {
-            // -- Moments Carousel --
-            if (milestones.isNotEmpty()) {
-                item {
-                    MomentsCarousel(milestones = milestones)
-                    Spacer(modifier = Modifier.height(Spacing.xl))
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = onRefresh,
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                contentPadding = PaddingValues(
+                    top = contentPadding.calculateTopPadding() + Spacing.lg,
+                    bottom = contentPadding.calculateBottomPadding() + 96.dp,
+                ),
+                modifier = Modifier.semantics { contentDescription = "时间线" }
+            ) {
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                ) {
+                    Text("时光轨迹", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(
+                        "记录宝宝的每一次进步，从第一次翻身到开口叫妈妈。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(Spacing.lg))
                 }
             }
 
-            // -- Growth Timeline --
+            if (milestones.isNotEmpty()) {
+                item {
+                    MomentsCarousel(milestones = milestones)
+                }
+            }
+
             if (milestones.isEmpty()) {
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(300.dp)
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                        ) {
-                            Icon(
-                                Icons.Rounded.Star,
-                                contentDescription = "暂无数据",
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.surfaceVariant,
-                            )
-                            Text(
-                                "还没有里程碑记录。点击下方按钮添加第一条吧！",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                    Box(modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                        .padding(32.dp), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Icon(Icons.Rounded.Star, contentDescription = "暂无数据", modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.surfaceVariant)
+                            Text("还没有里程碑记录。点击下方按钮添加第一条吧！", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
             } else {
                 itemsIndexed(milestones, key = { _, m -> m.id }) { index, milestone ->
-                    var isVisible by remember { mutableStateOf(false) }
-                    LaunchedEffect(milestone.id) { isVisible = true }
-
-                    AnimatedVisibility(
-                        visible = isVisible,
-                        enter = fadeIn() + slideInHorizontally(
-                            initialOffsetX = { -it / 3 },
-                            animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy)
-                        )
-                    ) {
+                    Box(modifier = Modifier.staggeredFadeSlideIn(index)) {
                         TimelineRow(
                             isFirst = index == 0,
                             isLast = index == totalMilestones - 1,
-                            isImportant = index == 0,
+                            category = milestone.category,
                         ) {
-                            TimelineCard(
-                                milestone = milestone,
-                                profile = profile,
-                                isImportant = index == 0,
-                                onEdit = {
-                                    editingMilestone = milestone
-                                    showDialog = true
-                                },
-                                onDelete = { onDeleteMilestone(milestone.id) },
-                            )
+                            Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(milestone.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                        profile?.birthday?.let { birthday ->
+                                            val day = ChronoUnit.DAYS.between(birthday, milestone.achievedDate) + 1
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.primaryContainer,
+                                                shape = RoundedCornerShape(16.dp),
+                                                shadowElevation = 2.dp,
+                                            ) {
+                                                Text(
+                                                    "出生第 $day 天",
+                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    val dateStr = "${milestone.achievedDate.formatDate()} · ${milestone.category.label}"
+                                    Text(dateStr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                                    milestone.note?.let {
+                                        Text(it, style = MaterialTheme.typography.bodyMedium)
+                                    }
+
+                                    milestone.photoPath?.let {
+                                        Box(modifier = Modifier
+                                            .padding(top = 8.dp)
+                                            .shadow(4.dp, RoundedCornerShape(16.dp))
+                                            .clip(RoundedCornerShape(16.dp))
+                                        ) {
+                                            PhotoPreviewCard(filePath = it, contentDescription = "${dateStr}的里程碑照片 - ${milestone.title}", modifier = Modifier.fillMaxWidth().height(200.dp))
+                                        }
+                                    }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.End,
+                                    ) {
+                                        TextButton(
+                                            onClick = {
+                                                editingMilestone = milestone
+                                                showDialog = true
+                                            },
+                                        ) {
+                                            Text("编辑")
+                                        }
+                                        TextButton(onClick = { onDeleteMilestone(milestone.id) }) {
+                                            Text("删除", color = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-                }
             }
 
-            // -- Development guides & reports --
             if (stageReports.isNotEmpty() || monthlyGuides.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(32.dp))
-                    GlassSurface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        alpha = 0.58f,
-                        shape = MaterialTheme.shapes.large,
-                        accentColor = MaterialTheme.colorScheme.primary,
-                        shadowElevation = 10.dp,
-                    ) {
+                    Box(modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)).fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
                         Text(
                             "发展指南与总结",
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -253,18 +288,11 @@ fun TimelineScreen(
                                     .padding(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Icon(Icons.Rounded.Lightbulb, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
                                     Text(guide.title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium)
                                 }
-                                Text(
-                                    guide.developmentHighlights.joinToString(" • "),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
+                                Text(guide.developmentHighlights.joinToString(" • "), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
                             }
                         }
                     }
@@ -280,6 +308,7 @@ fun TimelineScreen(
                     )
                 }
             }
+        }
         }
     }
 
@@ -304,17 +333,23 @@ fun TimelineScreen(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Moments Carousel
-// ---------------------------------------------------------------------------
+val milestoneCategoryColors: Map<MilestoneCategory, Color>
+    @Composable
+    get() = mapOf(
+        MilestoneCategory.GROSS_MOTOR to (MaterialTheme.semanticColors.milestoneCategoryColors[MilestoneCategory.GROSS_MOTOR] ?: MaterialTheme.colorScheme.primary),
+        MilestoneCategory.FINE_MOTOR to (MaterialTheme.semanticColors.milestoneCategoryColors[MilestoneCategory.FINE_MOTOR] ?: MaterialTheme.colorScheme.primary),
+        MilestoneCategory.LANGUAGE to (MaterialTheme.semanticColors.milestoneCategoryColors[MilestoneCategory.LANGUAGE] ?: MaterialTheme.colorScheme.primary),
+        MilestoneCategory.SOCIAL to (MaterialTheme.semanticColors.milestoneCategoryColors[MilestoneCategory.SOCIAL] ?: MaterialTheme.colorScheme.primary),
+        MilestoneCategory.COGNITIVE to (MaterialTheme.semanticColors.milestoneCategoryColors[MilestoneCategory.COGNITIVE] ?: MaterialTheme.colorScheme.primary),
+    )
 
 @Composable
 private fun MomentsCarousel(milestones: List<MilestoneEntity>) {
+    val placeholders = MaterialTheme.semanticColors.carouselPlaceholders
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Spacing.lg),
     ) {
-        // Section header: title + "view all" link
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -326,108 +361,70 @@ private fun MomentsCarousel(milestones: List<MilestoneEntity>) {
                 "精彩瞬间",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                "查看全部",
+                "最新 ${milestones.size} 条",
                 style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary,
             )
         }
-
-        // Horizontal scrolling cards
         LazyRow(
             contentPadding = PaddingValues(horizontal = Spacing.lg),
             horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
         ) {
-            itemsIndexed(milestones, key = { _, m -> "carousel_${m.id}" }) { index, milestone ->
-                MomentCard(milestone = milestone, index = index)
+            itemsIndexed(milestones.take(5), key = { _, milestone -> "carousel_${milestone.id}" }) { index, milestone ->
+                val (startColor, endColor) = placeholders[index % placeholders.size]
+                Box(
+                    modifier = Modifier
+                        .width(240.dp)
+                        .aspectRatio(4f / 5f)
+                        .clip(RoundedCornerShape(Spacing.lg))
+                        .background(
+                            Brush.linearGradient(
+                                listOf(startColor, endColor),
+                            )
+                        )
+                ) {
+                    milestone.photoPath?.let {
+                        PhotoPreviewCard(
+                            filePath = it,
+                            contentDescription = milestone.title,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.38f)),
+                                )
+                            )
+                    )
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(Spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    ) {
+                        Text(
+                            milestone.achievedDate.formatDate(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.84f),
+                        )
+                        Text(
+                            milestone.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            maxLines = 2,
+                        )
+                    }
+                }
             }
         }
     }
 }
-
-@Composable
-private fun MomentCard(milestone: MilestoneEntity, index: Int) {
-    val (bgLight, bgDark) = carouselPlaceholderColors[index % carouselPlaceholderColors.size]
-    val primaryColor = MaterialTheme.colorScheme.primary
-
-    Box(
-        modifier = Modifier
-            .width(256.dp)
-            .aspectRatio(4f / 5f)
-            .clip(RoundedCornerShape(16.dp))
-    ) {
-        // Decorative gradient background as placeholder
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(bgLight, bgDark),
-                        start = Offset.Zero,
-                        end = Offset(600f, 600f),
-                    )
-                )
-        )
-
-        // If there is a real photo, show it on top of the placeholder
-        milestone.photoPath?.let {
-            PhotoPreviewCard(
-                filePath = it,
-                contentDescription = milestone.title,
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-
-        // Bottom gradient overlay: from primary/60 to transparent (bottom-up)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            primaryColor.copy(alpha = 0.60f),
-                        ),
-                    )
-                )
-        )
-
-        // Date + title at bottom-left over the gradient
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(Spacing.lg),
-        ) {
-            Text(
-                milestone.achievedDate.format(carouselDateFormatter),
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium,
-                color = Color.White.copy(alpha = 0.80f),
-            )
-            Text(
-                milestone.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-            )
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Growth Timeline components
-// ---------------------------------------------------------------------------
-
-val milestoneCategoryColors: Map<MilestoneCategory, Color> = mapOf(
-    MilestoneCategory.GROSS_MOTOR to Color(0xFFF57C00),
-    MilestoneCategory.FINE_MOTOR to Color(0xFF1976D2),
-    MilestoneCategory.LANGUAGE to Color(0xFF388E3C),
-    MilestoneCategory.SOCIAL to Color(0xFFC2185B),
-    MilestoneCategory.COGNITIVE to Color(0xFF7B1FA2),
-)
 
 val milestoneCategoryIcons: Map<MilestoneCategory, ImageVector> = mapOf(
     MilestoneCategory.GROSS_MOTOR to Icons.Rounded.DirectionsRun,
@@ -437,225 +434,93 @@ val milestoneCategoryIcons: Map<MilestoneCategory, ImageVector> = mapOf(
     MilestoneCategory.COGNITIVE to Icons.Rounded.Psychology,
 )
 
-/**
- * A single timeline row: left gradient axis + node + card content to the right.
- */
 @Composable
 private fun TimelineRow(
     isFirst: Boolean,
     isLast: Boolean,
-    isImportant: Boolean,
-    content: @Composable () -> Unit,
+    category: MilestoneCategory,
+    content: @Composable () -> Unit
 ) {
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val primaryContainerColor = MaterialTheme.colorScheme.primaryContainer
-    val surfaceContainerHighColor = MaterialTheme.colorScheme.surfaceContainerHigh
-    val surfaceColor = MaterialTheme.colorScheme.surface
-
-    // Left gradient axis: primary/20 via primary/5 to transparent
-    val axisBrush = Brush.verticalGradient(
-        colors = listOf(
-            primaryColor.copy(alpha = 0.20f),
-            primaryColor.copy(alpha = 0.05f),
-            Color.Transparent,
+    val nodeColor = milestoneCategoryColors[category] ?: MaterialTheme.colorScheme.primary
+    val icon = milestoneCategoryIcons[category] ?: Icons.Rounded.Star
+    val lineColor = timelineStageColor(category)
+    val gradientBrush = Brush.verticalGradient(listOf(nodeColor, lineColor))
+    val latestPulse = rememberInfiniteTransition(label = "timeline_pulse")
+    val pulseScale by latestPulse.animateFloat(
+        initialValue = 0.86f,
+        targetValue = 1.24f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
         ),
+        label = "pulse_scale",
+    )
+    val pulseAlpha by latestPulse.animateFloat(
+        initialValue = 0.12f,
+        targetValue = 0.32f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "pulse_alpha",
     )
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = Spacing.lg, end = Spacing.lg)
             .drawBehind {
-                // Draw the 4dp-wide left gradient axis
-                val lineX = TimelineNodeLineX.toPx()
-                val strokeW = 4.dp.toPx()
-                val topY = if (isFirst) (TimelineNodeSize / 2).toPx() else 0f
-                val bottomY = if (isLast) (TimelineNodeSize / 2).toPx() else size.height
-
-                drawLine(
-                    brush = axisBrush,
-                    start = Offset(lineX, topY),
-                    end = Offset(lineX, bottomY),
-                    strokeWidth = strokeW,
-                )
+                val nodeY = 24.dp.toPx()
+                val lineX = TimelineLineOffset.toPx()
+                val strokeW = 3.dp.toPx()
+                
+                if (!isFirst) {
+                    drawLine(lineColor, androidx.compose.ui.geometry.Offset(lineX, 0f), androidx.compose.ui.geometry.Offset(lineX, nodeY - 12.dp.toPx()), strokeWidth = strokeW)
+                }
+                if (!isLast) {
+                    drawLine(gradientBrush, androidx.compose.ui.geometry.Offset(lineX, nodeY + 12.dp.toPx()), androidx.compose.ui.geometry.Offset(lineX, size.height), strokeWidth = strokeW)
+                }
             }
-            .padding(bottom = if (isLast) 0.dp else TimelineGap),
-        verticalAlignment = Alignment.Top,
+            .padding(bottom = if (isLast) 0.dp else 32.dp)
     ) {
-        // Timeline node
         Box(
             modifier = Modifier
-                .padding(top = Spacing.sm)
-                .size(TimelineNodeSize),
-            contentAlignment = Alignment.Center,
+                .padding(start = TimelineLineOffset - 12.dp, top = 12.dp)
+                .size(24.dp),
+            contentAlignment = Alignment.Center
         ) {
-            if (isImportant) {
-                // Important/latest: primaryContainer circle, primary/20 shadow, surface 4dp border
+            if (isFirst) {
                 Box(
                     modifier = Modifier
-                        .size(TimelineNodeSize)
-                        .shadow(
-                            elevation = 8.dp,
-                            shape = CircleShape,
-                            ambientColor = primaryColor.copy(alpha = 0.20f),
-                            spotColor = primaryColor.copy(alpha = 0.20f),
-                        )
-                        .border(4.dp, surfaceColor, CircleShape)
-                        .background(primaryContainerColor, CircleShape),
-                )
-            } else {
-                // Normal: surfaceContainerHigh circle, surface 4dp border
-                Box(
-                    modifier = Modifier
-                        .size(TimelineNodeSize)
-                        .border(4.dp, surfaceColor, CircleShape)
-                        .background(surfaceContainerHighColor, CircleShape),
+                        .size((24 * pulseScale).dp)
+                        .background(nodeColor.copy(alpha = pulseAlpha), CircleShape),
                 )
             }
-        }
-
-        Spacer(modifier = Modifier.width(Spacing.lg))
-
-        // Card content fills the remaining space
-        Box(modifier = Modifier.weight(1f)) {
-            content()
-        }
-    }
-}
-
-/**
- * A single timeline card matching the stitch/_4 design:
- * surfaceContainerLowest/80 bg, backdrop blur via GlassSurface, rounded-xl (16dp),
- * subtle shadow, date label, optional image, title, description.
- */
-@Composable
-private fun TimelineCard(
-    milestone: MilestoneEntity,
-    profile: BabyProfile?,
-    isImportant: Boolean,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    val primaryColor = MaterialTheme.colorScheme.primary
-
-    // Build date label: "3月20日 · 5个月"
-    val dateLabel = remember(milestone.achievedDate, profile?.birthday) {
-        val month = milestone.achievedDate.monthValue
-        val day = milestone.achievedDate.dayOfMonth
-        val ageStr = profile?.birthday?.let { birthday ->
-            val totalDays = ChronoUnit.DAYS.between(birthday, milestone.achievedDate)
-            val months = totalDays / 30
-            val remainingDays = totalDays % 30
-            when {
-                months > 0 && remainingDays > 0 -> "${months}个月${remainingDays}天"
-                months > 0 -> "${months}个月"
-                else -> "${totalDays}天"
-            }
-        }
-        if (ageStr != null) "${month}月${day}日 · $ageStr" else "${month}月${day}日"
-    }
-
-    GlassSurface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .softShadow(
-                elevation = 6.dp,
-                shape = CardShape,
-                color = Color(0xFF825600).copy(alpha = 0.05f),
-            ),
-        shape = CardShape,
-        alpha = 0.80f,
-        accentColor = primaryColor,
-        shadowElevation = 0.dp,
-    ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            // Decorative circle at top-right (matches mockup's bg-primary/5 circle)
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(128.dp)
-                    .background(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                primaryColor.copy(alpha = 0.05f),
-                                Color.Transparent,
-                            ),
-                        ),
-                        shape = CircleShape,
-                    )
+                    .fillMaxSize()
+                    .background(nodeColor, CircleShape),
             )
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+        }
+        Box(modifier = Modifier.padding(start = TimelineContentStart - TimelineLineOffset - 12.dp, end = 16.dp)) {
+            GlassSurface(
+                modifier = Modifier.fillMaxWidth(),
+                alpha = 0.66f,
+                shape = RoundedCornerShape(22.dp),
+                accentColor = nodeColor,
+                shadowElevation = 14.dp,
             ) {
-                // Date label (primary bold for important, onSurfaceVariant for normal)
-                Text(
-                    dateLabel,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isImportant) primaryColor else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                // Optional image area
-                milestone.photoPath?.let {
-                    Spacer(modifier = Modifier.height(Spacing.sm))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                    ) {
-                        PhotoPreviewCard(
-                            filePath = it,
-                            contentDescription = "${milestone.title}的照片",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(16f / 9f),
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(Spacing.sm))
-
-                // Title: headlineSmall bold
-                Text(
-                    milestone.title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-
-                // Description (onSurfaceVariant)
-                milestone.note?.let {
-                    Spacer(modifier = Modifier.height(Spacing.xs))
-                    Text(
-                        it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                // Edit / Delete actions
-                Spacer(modifier = Modifier.height(Spacing.sm))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(onClick = onEdit) { Text("编辑") }
-                    TextButton(onClick = onDelete) {
-                        Text("删除", color = MaterialTheme.colorScheme.error)
-                    }
+                Box(modifier = Modifier.padding(16.dp)) {
+                    content()
                 }
             }
         }
     }
 }
 
-// ---------------------------------------------------------------------------
-// Stage reports & yearly summary (preserved from original)
-// ---------------------------------------------------------------------------
+@Composable
+private fun timelineStageColor(category: MilestoneCategory): Color =
+    MaterialTheme.semanticColors.milestoneCategoryColors[category] ?: MaterialTheme.colorScheme.primary
 
 @Composable
 private fun StageReportCard(report: StageReportEntry) {
@@ -666,10 +531,7 @@ private fun StageReportCard(report: StageReportEntry) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Text(report.report.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
             }
@@ -694,19 +556,11 @@ private fun YearlySummaryCard(
         .groupingBy { it.happenedAt.toLocalDate() }
         .eachCount()
         .maxByOrNull { it.value }
-
+        
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            MaterialTheme.colorScheme.surface,
-                        )
-                    )
-                )
+        Box(modifier = Modifier
+            .fillMaxWidth()
+            .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.surface)))
         ) {
             Column(
                 modifier = Modifier
@@ -714,35 +568,22 @@ private fun YearlySummaryCard(
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(
-                    "年度陪伴回顾",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    "在这里，每一个日夜都被温柔记录。",
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Text("年度陪伴回顾", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                Text("在这里，每一个日夜都被温柔记录。", fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    "\uD83C\uDF7C 累计喂养记录：${feedings.size} 次",
-                    fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
+                
+                Text("🍼 累计喂养记录：${feedings.size} 次", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
                 Text(
                     "累计母乳时长 ${feedings.sumOf { it.durationMinutes ?: 0 }} 分钟，为宝宝换了 ${diapers.size} 次带来干爽的纸尿裤。",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    "\uD83C\uDF19 默默陪伴的黑夜：累计夜醒约 $totalNightWakes 次。辛苦了，每一个不眠之夜都闪耀着母爱的光芒。",
+                    "🌙 默默陪伴的黑夜：累计夜醒约 $totalNightWakes 次。辛苦了，每一个不眠之夜都闪耀着母爱的光芒。",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 busiestDay?.let {
                     Text(
-                        "\uD83D\uDD25 最充实的一天：${it.key.formatDate()}，当天记录了 ${it.value} 次喂养，一定非常忙碌吧。",
+                        "🔥 最充实的一天：${it.key.formatDate()}，当天记录了 ${it.value} 次喂养，一定非常忙碌吧。",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -750,10 +591,6 @@ private fun YearlySummaryCard(
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// Add / Edit Milestone Dialog (preserved from original)
-// ---------------------------------------------------------------------------
 
 @Composable
 fun AddMilestoneDialog(
@@ -790,7 +627,7 @@ fun AddMilestoneDialog(
                     label = { Text("标题") },
                     singleLine = true,
                 )
-
+                
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("类别", modifier = Modifier.align(Alignment.CenterVertically))
                 }
@@ -803,7 +640,7 @@ fun AddMilestoneDialog(
                         )
                     }
                 }
-
+                
                 NativeDatePickerField(
                     value = date,
                     onValueChange = { date = it },

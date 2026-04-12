@@ -20,6 +20,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.littlegrow.app.data.MedicalSummary
+import com.littlegrow.app.ui.components.EmptyRecordCard
 import com.littlegrow.app.ui.components.ExpressiveAssistChip as AssistChip
 import com.littlegrow.app.ui.components.ExpressiveOutlinedButton as OutlinedButton
 

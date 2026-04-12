@@ -68,6 +68,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.Instant
@@ -113,6 +114,7 @@ class MainViewModel(
     private val _medicalSummary = MutableStateFlow<MedicalSummary?>(null)
     private val _handoverSummary = MutableStateFlow<HandoverSummary?>(null)
     private val _homeCaregiverFilter = MutableStateFlow<String?>(null)
+    private val _refreshing = MutableStateFlow(false)
 
     val themeMode: StateFlow<ThemeMode> = repository.themeMode.stateIn(
         scope = viewModelScope,
@@ -277,6 +279,7 @@ class MainViewModel(
     val medicalSummary: StateFlow<MedicalSummary?> = _medicalSummary.asStateFlow()
     val handoverSummary: StateFlow<HandoverSummary?> = _handoverSummary.asStateFlow()
     val homeCaregiverFilter: StateFlow<String?> = _homeCaregiverFilter.asStateFlow()
+    val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
 
     val ageMonths = profile.map { baby ->
         baby?.birthday?.let { ChronoUnit.MONTHS.between(it, LocalDate.now()).toInt() } ?: 0
@@ -727,6 +730,15 @@ class MainViewModel(
 
     fun setHomeCaregiverFilter(name: String?) {
         _homeCaregiverFilter.value = name?.takeIf { it.isNotBlank() }
+    }
+
+    fun refresh() {
+        if (_refreshing.value) return
+        viewModelScope.launch {
+            _refreshing.value = true
+            delay(300)
+            _refreshing.value = false
+        }
     }
 
     fun setAutoBackupFrequency(frequency: BackupFrequency) {

@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,8 +19,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Info
@@ -28,12 +31,14 @@ import androidx.compose.material.icons.rounded.NoteAlt
 import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,12 +53,23 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.littlegrow.app.ui.theme.Spacing
 import com.littlegrow.app.data.BabyProfile
 import com.littlegrow.app.data.GrowthVelocityRange
 import com.littlegrow.app.data.GrowthDraft
@@ -65,7 +81,9 @@ import com.littlegrow.app.data.VaccineCategory
 import com.littlegrow.app.data.VaccineReactionDraft
 import com.littlegrow.app.data.WhoGrowthStandards
 import com.littlegrow.app.ui.NativeDatePickerField
+import com.littlegrow.app.ui.components.EmptyRecordCard
 import com.littlegrow.app.ui.components.GlassSurface
+import com.littlegrow.app.ui.components.staggeredFadeSlideIn
 import com.littlegrow.app.ui.components.ExpressiveFilterChip as FilterChip
 import com.littlegrow.app.ui.components.ExpressiveOutlinedButton as OutlinedButton
 import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
@@ -74,14 +92,19 @@ import com.littlegrow.app.ui.formatDate
 import com.littlegrow.app.ui.formatMetric
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+import kotlin.math.hypot
+import kotlin.math.roundToInt
 import kotlin.math.pow
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GrowthScreen(
     profile: BabyProfile?,
     growthRecords: List<GrowthEntity>,
     vaccines: List<VaccineEntity>,
+    refreshing: Boolean,
     contentPadding: PaddingValues,
+    onRefresh: () -> Unit,
     onAddGrowth: (GrowthDraft) -> Unit,
     onUpdateGrowth: (Long, GrowthDraft) -> Unit,
     onDeleteGrowth: (Long) -> Unit,
@@ -94,82 +117,102 @@ fun GrowthScreen(
     var editingGrowth by remember { mutableStateOf<GrowthEntity?>(null) }
     var editingVaccine by remember { mutableStateOf<VaccineEntity?>(null) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = contentPadding.calculateTopPadding() + 16.dp,
-                bottom = contentPadding.calculateBottomPadding() + 96.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = onRefresh,
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                contentPadding = PaddingValues(
+                    start = Spacing.lg,
+                    end = Spacing.lg,
+                    top = contentPadding.calculateTopPadding() + Spacing.lg,
+                    bottom = contentPadding.calculateBottomPadding() + 96.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+            ) {
             // -- Monthly Growth Summary Card --
             item {
-                MonthlyGrowthSummaryCard(
-                    profile = profile,
-                    growthRecords = growthRecords,
-                )
+                Box(modifier = Modifier.staggeredFadeSlideIn(0)) {
+                    MonthlyGrowthSummaryCard(
+                        profile = profile,
+                        growthRecords = growthRecords,
+                    )
+                }
             }
 
             // -- Height Trend Section --
             item {
-                GrowthTrendSection(
-                    profile = profile,
-                    records = growthRecords,
-                    metric = GrowthMetric.HEIGHT,
-                )
+                Box(modifier = Modifier.staggeredFadeSlideIn(1)) {
+                    GrowthTrendSection(
+                        profile = profile,
+                        records = growthRecords,
+                        metric = GrowthMetric.HEIGHT,
+                    )
+                }
             }
 
             // -- Weight Trend Section --
             item {
-                GrowthTrendSection(
-                    profile = profile,
-                    records = growthRecords,
-                    metric = GrowthMetric.WEIGHT,
-                )
+                Box(modifier = Modifier.staggeredFadeSlideIn(2)) {
+                    GrowthTrendSection(
+                        profile = profile,
+                        records = growthRecords,
+                        metric = GrowthMetric.WEIGHT,
+                    )
+                }
             }
 
             // -- Bottom Bento Cards --
             item {
-                BentoCardsRow()
+                Box(modifier = Modifier.staggeredFadeSlideIn(3)) {
+                    BentoCardsRow()
+                }
             }
 
             // -- Metric filter chips (for head/BMI etc.) --
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    GrowthMetric.entries.forEach { candidate ->
-                        FilterChip(
-                            selected = candidate == metric,
-                            onClick = { metric = candidate },
-                            label = { Text(candidate.label) },
-                        )
+                Box(modifier = Modifier.staggeredFadeSlideIn(4)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    ) {
+                        GrowthMetric.entries.forEach { candidate ->
+                            FilterChip(
+                                selected = candidate == metric,
+                                onClick = { metric = candidate },
+                                label = { Text(candidate.label) },
+                            )
+                        }
                     }
                 }
             }
 
             // -- Full chart card (existing logic, all metrics) --
             item {
-                GrowthChartCard(
-                    profile = profile,
-                    records = growthRecords,
-                    metric = metric,
-                )
+                Box(modifier = Modifier.staggeredFadeSlideIn(5)) {
+                    GrowthChartCard(
+                        profile = profile,
+                        records = growthRecords,
+                        metric = metric,
+                    )
+                }
             }
 
             // -- Growth records list --
             if (growthRecords.isEmpty()) {
-                item { EmptyRecordCard("还没有生长记录。") }
+                item {
+                    Box(modifier = Modifier.staggeredFadeSlideIn(6)) {
+                        EmptyRecordCard("还没有生长记录。")
+                    }
+                }
             } else {
-                items(growthRecords, key = { it.id }) { growth ->
-                    ElevatedCard {
+                itemsIndexed(growthRecords, key = { _, it -> it.id }) { index, growth ->
+                    ElevatedCard(modifier = Modifier.staggeredFadeSlideIn(index + 6)) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
+                                .padding(Spacing.lg),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             Text(growth.date.formatDate(), fontWeight = FontWeight.SemiBold)
@@ -209,27 +252,24 @@ fun GrowthScreen(
 
             // -- Vaccine sections --
             item {
-                VaccineOverviewCard(hasVaccines = vaccines.isNotEmpty())
+                Box(modifier = Modifier.staggeredFadeSlideIn(7)) {
+                    VaccineOverviewCard(hasVaccines = vaccines.isNotEmpty())
+                }
             }
 
             if (vaccines.isNotEmpty()) {
                 item {
-                    VaccineSectionHeader(
-                        showRecommendedVaccines = showRecommendedVaccines,
-                        onToggleRecommended = { showRecommendedVaccines = !showRecommendedVaccines },
-                    )
+                    Box(modifier = Modifier.staggeredFadeSlideIn(8)) {
+                        VaccineSectionHeader(
+                            showRecommendedVaccines = showRecommendedVaccines,
+                            onToggleRecommended = { showRecommendedVaccines = !showRecommendedVaccines },
+                        )
+                    }
                 }
                 val nationalVaccines = vaccines.filter { it.category == VaccineCategory.NATIONAL }
                 val recommendedVaccines = vaccines.filter { it.category == VaccineCategory.RECOMMENDED }
-                items(nationalVaccines, key = { it.scheduleKey }) { vaccine ->
-                    VaccineCard(
-                        vaccine = vaccine,
-                        onToggleDone = onToggleVaccineDone,
-                        onEditReaction = { editingVaccine = it },
-                    )
-                }
-                if (showRecommendedVaccines) {
-                    items(recommendedVaccines, key = { it.scheduleKey }) { vaccine ->
+                itemsIndexed(nationalVaccines, key = { _, it -> it.scheduleKey }) { index, vaccine ->
+                    Box(modifier = Modifier.staggeredFadeSlideIn(index + 9)) {
                         VaccineCard(
                             vaccine = vaccine,
                             onToggleDone = onToggleVaccineDone,
@@ -237,7 +277,19 @@ fun GrowthScreen(
                         )
                     }
                 }
+                if (showRecommendedVaccines) {
+                    itemsIndexed(recommendedVaccines, key = { _, it -> it.scheduleKey }) { index, vaccine ->
+                        Box(modifier = Modifier.staggeredFadeSlideIn(index + 9 + nationalVaccines.size)) {
+                            VaccineCard(
+                                vaccine = vaccine,
+                                onToggleDone = onToggleVaccineDone,
+                                onEditReaction = { editingVaccine = it },
+                            )
+                        }
+                    }
+                }
             }
+        }
         }
     }
 
@@ -323,7 +375,7 @@ private fun MonthlyGrowthSummaryCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(Spacing.lg),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -352,7 +404,7 @@ private fun MonthlyGrowthSummaryCard(
                         ) {
                             Text(
                                 "${ageMonths}个月大",
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                                modifier = Modifier.padding(horizontal = Spacing.lg, vertical = 6.dp),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -363,27 +415,27 @@ private fun MonthlyGrowthSummaryCard(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                 ) {
                     // Weight gain card
                     Surface(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(Spacing.lg),
                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.40f),
                     ) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(Spacing.lg),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.MonitorWeight,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.secondary,
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(Spacing.lg2),
                                 )
                                 Text(
                                     "体重增长",
@@ -415,22 +467,22 @@ private fun MonthlyGrowthSummaryCard(
                     // Height gain card
                     Surface(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(Spacing.lg),
                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.40f),
                     ) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(Spacing.lg),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.Straighten,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.tertiary,
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(Spacing.lg2),
                                 )
                                 Text(
                                     "身高增长",
@@ -479,7 +531,7 @@ private fun GrowthTrendSection(
     }
 
     Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         // Section header
         Row(
@@ -491,7 +543,7 @@ private fun GrowthTrendSection(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
                 Box(
                     modifier = Modifier
@@ -513,7 +565,7 @@ private fun GrowthTrendSection(
             if (isHeight) {
                 // Legend for height chart
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -521,7 +573,7 @@ private fun GrowthTrendSection(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(8.dp)
+                                .size(Spacing.sm)
                                 .background(
                                     color = MaterialTheme.colorScheme.secondary,
                                     shape = CircleShape,
@@ -540,7 +592,7 @@ private fun GrowthTrendSection(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(8.dp)
+                                .size(Spacing.sm)
                                 .background(
                                     color = MaterialTheme.colorScheme.secondaryContainer,
                                     shape = CircleShape,
@@ -564,7 +616,7 @@ private fun GrowthTrendSection(
                         imageVector = Icons.Rounded.Info,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(Spacing.lg),
                     )
                     Text(
                         "符合WHO标准",
@@ -578,7 +630,7 @@ private fun GrowthTrendSection(
         // Chart card with surfaceContainerLowest background
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(Spacing.lg2),
             color = MaterialTheme.colorScheme.surfaceContainerLowest,
             shadowElevation = 1.dp,
         ) {
@@ -643,8 +695,8 @@ private fun GrowthChartContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(Spacing.lg2),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         if (measurementPoints.isEmpty() && profile == null) {
             Text(
@@ -780,18 +832,18 @@ private fun GrowthChartContent(
 private fun BentoCardsRow() {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         // Left card: Milestones
         Surface(
             modifier = Modifier
                 .weight(1f)
                 .height(160.dp),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(Spacing.lg),
             color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.30f),
         ) {
             Column(
-                modifier = Modifier.padding(20.dp),
+                modifier = Modifier.padding(Spacing.lg2),
                 verticalArrangement = Arrangement.SpaceBetween,
             ) {
                 Icon(
@@ -822,11 +874,11 @@ private fun BentoCardsRow() {
             modifier = Modifier
                 .weight(1f)
                 .height(160.dp),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(Spacing.lg),
             color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.30f),
         ) {
             Column(
-                modifier = Modifier.padding(20.dp),
+                modifier = Modifier.padding(Spacing.lg2),
                 verticalArrangement = Arrangement.SpaceBetween,
             ) {
                 Icon(
@@ -860,8 +912,8 @@ private fun VaccineOverviewCard(hasVaccines: Boolean) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             Text("疫苗管家", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(
@@ -963,8 +1015,8 @@ private fun VaccineSectionHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             Text("推荐自费疫苗", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Text(
@@ -1010,6 +1062,9 @@ private fun GrowthChartCard(
     val predictionPoints = remember(measurementPoints, visibleMaxAgeDays) {
         buildPredictionPoints(measurementPoints, visibleMaxAgeDays)
     }
+    var chartSize by remember(metric) { mutableStateOf(IntSize.Zero) }
+    var selectedPointIndex by remember(metric) { mutableStateOf<Int?>(null) }
+    val density = LocalDensity.current
 
     var animationPlayed by remember { mutableStateOf(false) }
     androidx.compose.runtime.LaunchedEffect(metric) {
@@ -1026,6 +1081,10 @@ private fun GrowthChartCard(
     ElevatedCard {
         val primaryColor = MaterialTheme.colorScheme.primary
         val accentColor = MaterialTheme.colorScheme.tertiary
+        val axisLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.86f)
+        val axisTitleColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
+        val referenceBandStart = MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f)
+        val referenceBandEnd = MaterialTheme.colorScheme.secondary.copy(alpha = 0.04f)
         val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
         val referenceColors = listOf(
             MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f),
@@ -1037,8 +1096,8 @@ private fun GrowthChartCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             Text("${metric.label}趋势", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             if (measurementPoints.isEmpty() && profile == null) {
@@ -1064,121 +1123,305 @@ private fun GrowthChartCard(
                     GrowthMetric.HEIGHT, GrowthMetric.HEAD -> 1f
                     GrowthMetric.BMI -> 0.6f
                 }
-                Canvas(
+                BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(16f / 10f),
                 ) {
-                    val width = size.width
-                    val height = size.height
-                    val horizontalPadding = 32f
-                    val verticalPadding = 24f
-                    val ySpread = (maxY - minY).takeIf { it > 0f } ?: 1f
-                    val chartWidth = width - horizontalPadding * 2
-                    val chartHeight = height - verticalPadding * 2
-                    fun project(ageDays: Int, value: Float): Offset {
-                        val xProgress = ageDays.toFloat() / visibleMaxAgeDays.coerceAtLeast(1)
-                        val yProgress = (value - minY) / ySpread
-                        return Offset(
-                            x = horizontalPadding + chartWidth * xProgress,
-                            y = height - verticalPadding - chartHeight * yProgress,
-                        )
+                    val tooltipPoint = selectedPointIndex?.let { index ->
+                        measurementPoints.getOrNull(index)?.let { point ->
+                            projectGrowthChartPoint(
+                                ageDays = point.first,
+                                value = point.second,
+                                chartSize = chartSize,
+                                visibleMaxAgeDays = visibleMaxAgeDays,
+                                minY = minY,
+                                maxY = maxY,
+                            )
+                        }
                     }
 
-                    repeat(4) { index ->
-                        val y = verticalPadding + chartHeight * index / 3f
-                        drawLine(
-                            color = gridColor,
-                            start = Offset(horizontalPadding, y),
-                            end = Offset(width - horizontalPadding, y),
-                            strokeWidth = 2f,
-                        )
-                    }
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .onSizeChanged { chartSize = it }
+                            .pointerInput(measurementPoints, chartSize, minY, maxY, visibleMaxAgeDays) {
+                                detectTapGestures { tapOffset ->
+                                    if (measurementPoints.isEmpty() || chartSize == IntSize.Zero) {
+                                        selectedPointIndex = null
+                                        return@detectTapGestures
+                                    }
+                                    val nearest = measurementPoints.mapIndexed { index, point ->
+                                        val projected = projectGrowthChartPoint(
+                                            ageDays = point.first,
+                                            value = point.second,
+                                            chartSize = chartSize,
+                                            visibleMaxAgeDays = visibleMaxAgeDays,
+                                            minY = minY,
+                                            maxY = maxY,
+                                        )
+                                        index to hypot(
+                                            (projected.x - tapOffset.x).toDouble(),
+                                            (projected.y - tapOffset.y).toDouble(),
+                                        ).toFloat()
+                                    }.minByOrNull { it.second }
+                                    selectedPointIndex = nearest?.takeIf { it.second <= 72f * density.density }?.first
+                                }
+                            },
+                    ) {
+                        val width = size.width
+                        val height = size.height
+                        val horizontalPadding = 52f
+                        val rightPadding = 42f
+                        val verticalPadding = 28f
+                        val ySpread = (maxY - minY).takeIf { it > 0f } ?: 1f
+                        val chartWidth = width - horizontalPadding - rightPadding
+                        val chartHeight = height - verticalPadding * 2
 
-                    if (visibleReferencePoints.isNotEmpty()) {
-                        reference?.percentiles?.forEachIndexed { index, percentile ->
-                            val path = Path().apply {
-                                visibleReferencePoints.forEachIndexed { pointIndex, point ->
-                                    val offset = project(point.ageDays, point.valueFor(percentile))
-                                    if (pointIndex == 0) moveTo(offset.x, offset.y) else lineTo(offset.x, offset.y)
+                        fun project(ageDays: Int, value: Float): Offset {
+                            val xProgress = ageDays.toFloat() / visibleMaxAgeDays.coerceAtLeast(1)
+                            val yProgress = (value - minY) / ySpread
+                            return Offset(
+                                x = horizontalPadding + chartWidth * xProgress,
+                                y = height - verticalPadding - chartHeight * yProgress,
+                            )
+                        }
+
+                        val labelPaint = android.graphics.Paint().apply {
+                            isAntiAlias = true
+                            textSize = 11.sp.toPx()
+                            color = axisLabelColor.toArgb()
+                        }
+                        val axisPaint = android.graphics.Paint(labelPaint).apply {
+                            textSize = 12.sp.toPx()
+                            color = axisTitleColor.toArgb()
+                            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+                        }
+
+                        val yAxisValues = List(4) { index ->
+                            maxY - (ySpread * index / 3f)
+                        }
+                        yAxisValues.forEachIndexed { index, value ->
+                            val y = verticalPadding + chartHeight * index / 3f
+                            drawLine(
+                                color = gridColor,
+                                start = Offset(horizontalPadding, y),
+                                end = Offset(width - rightPadding, y),
+                                strokeWidth = 2f,
+                            )
+                            drawContext.canvas.nativeCanvas.drawText(
+                                if (metric == GrowthMetric.HEIGHT || metric == GrowthMetric.HEAD) "${value.roundToInt()}" else String.format("%.1f", value),
+                                8f,
+                                y + 4.dp.toPx(),
+                                labelPaint,
+                            )
+                        }
+
+                        val monthMarks = listOf(0, 3, 6, 9, 12, 18, 24).filter {
+                            it * 30 <= visibleMaxAgeDays
+                        }.ifEmpty { listOf(0) }
+                        monthMarks.forEach { month ->
+                            val x = horizontalPadding + chartWidth * ((month * 30f) / visibleMaxAgeDays.coerceAtLeast(1))
+                            drawLine(
+                                color = gridColor.copy(alpha = 0.55f),
+                                start = Offset(x, verticalPadding),
+                                end = Offset(x, height - verticalPadding),
+                                strokeWidth = 1.5f,
+                            )
+                            drawContext.canvas.nativeCanvas.drawText(
+                                "${month}月",
+                                x - 12.dp.toPx(),
+                                height - 6.dp.toPx(),
+                                labelPaint,
+                            )
+                        }
+                        drawContext.canvas.nativeCanvas.drawText(
+                            when (metric) {
+                                GrowthMetric.WEIGHT -> "kg"
+                                GrowthMetric.HEIGHT -> "cm"
+                                GrowthMetric.HEAD -> "cm"
+                                GrowthMetric.BMI -> "BMI"
+                            },
+                            8f,
+                            16.dp.toPx(),
+                            axisPaint,
+                        )
+
+                        if (visibleReferencePoints.isNotEmpty()) {
+                            val bandPath = Path().apply {
+                                visibleReferencePoints.forEachIndexed { index, point ->
+                                    val offset = project(point.ageDays, point.p3)
+                                    if (index == 0) moveTo(offset.x, offset.y) else lineTo(offset.x, offset.y)
+                                }
+                                visibleReferencePoints.asReversed().forEach { point ->
+                                    val offset = project(point.ageDays, point.p97)
+                                    lineTo(offset.x, offset.y)
+                                }
+                                close()
+                            }
+                            drawPath(
+                                path = bandPath,
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        referenceBandStart,
+                                        referenceBandEnd,
+                                    ),
+                                    startY = verticalPadding,
+                                    endY = height - verticalPadding,
+                                ),
+                            )
+
+                            reference?.percentiles?.forEachIndexed { index, percentile ->
+                                val path = Path().apply {
+                                    visibleReferencePoints.forEachIndexed { pointIndex, point ->
+                                        val offset = project(point.ageDays, point.valueFor(percentile))
+                                        if (pointIndex == 0) moveTo(offset.x, offset.y) else lineTo(offset.x, offset.y)
+                                    }
+                                }
+                                drawPath(
+                                    path = path,
+                                    color = referenceColors[index],
+                                    style = Stroke(
+                                        width = if (percentile == 50) 4f else 2.5f,
+                                        pathEffect = if (percentile == 50) null else PathEffect.dashPathEffect(floatArrayOf(10f, 10f)),
+                                        cap = StrokeCap.Round,
+                                    ),
+                                )
+                            }
+
+                            listOf(3, 50, 97).forEach { percentile ->
+                                val point = visibleReferencePoints.lastOrNull() ?: return@forEach
+                                val offset = project(point.ageDays, point.valueFor(percentile))
+                                drawContext.canvas.nativeCanvas.drawText(
+                                    "P$percentile",
+                                    offset.x + 8.dp.toPx(),
+                                    offset.y + 4.dp.toPx(),
+                                    axisPaint,
+                                )
+                            }
+                        }
+
+                        if (measurementPoints.isNotEmpty()) {
+                            val measurementPath = Path().apply {
+                                measurementPoints.forEachIndexed { index, point ->
+                                    val offset = project(point.first, point.second)
+                                    if (index == 0) moveTo(offset.x, offset.y) else lineTo(offset.x, offset.y)
+                                }
+                            }
+
+                            val pathMeasure = androidx.compose.ui.graphics.PathMeasure()
+                            pathMeasure.setPath(measurementPath, false)
+                            val animatedPath = Path()
+                            pathMeasure.getSegment(0f, pathMeasure.length * animProgress, animatedPath, true)
+
+                            val fillPath = Path().apply {
+                                addPath(animatedPath)
+                                if (measurementPoints.isNotEmpty() && animProgress > 0f) {
+                                    val firstOffset = project(measurementPoints.first().first, measurementPoints.first().second)
+                                    val lastIndex = (measurementPoints.size * animProgress).toInt().coerceAtMost(measurementPoints.size - 1)
+                                    val lastOffset = project(measurementPoints[lastIndex].first, measurementPoints[lastIndex].second)
+                                    lineTo(lastOffset.x, height - verticalPadding)
+                                    lineTo(firstOffset.x, height - verticalPadding)
+                                    close()
+                                }
+                            }
+
+                            drawPath(
+                                path = fillPath,
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(primaryColor.copy(alpha = 0.4f), Color.Transparent),
+                                    startY = verticalPadding,
+                                    endY = height - verticalPadding,
+                                ),
+                            )
+
+                            if (measurementPoints.size > 1) {
+                                drawPath(
+                                    path = animatedPath,
+                                    color = primaryColor,
+                                    style = Stroke(width = 8f, cap = StrokeCap.Round),
+                                )
+                            }
+
+                            val pointsToDraw = (measurementPoints.size * animProgress).toInt()
+                            measurementPoints.take(pointsToDraw + 1).forEachIndexed { index, point ->
+                                val center = project(point.first, point.second)
+                                val isSelected = selectedPointIndex == index
+                                if (isSelected) {
+                                    drawCircle(
+                                        color = accentColor.copy(alpha = 0.22f),
+                                        radius = 18f,
+                                        center = center,
+                                    )
+                                }
+                                drawCircle(
+                                    color = accentColor,
+                                    radius = if (isSelected) 11f else 9f,
+                                    center = center,
+                                )
+                            }
+                        }
+                        if (predictionPoints.isNotEmpty()) {
+                            val predictionPath = Path().apply {
+                                predictionPoints.forEachIndexed { index, point ->
+                                    val offset = project(point.first, point.second)
+                                    if (index == 0) moveTo(offset.x, offset.y) else lineTo(offset.x, offset.y)
                                 }
                             }
                             drawPath(
-                                path = path,
-                                color = referenceColors[index],
+                                path = predictionPath,
+                                color = accentColor.copy(alpha = 0.7f * animProgress),
                                 style = Stroke(
-                                    width = if (percentile == 50) 4f else 2.5f,
-                                    pathEffect = if (percentile == 50) null else PathEffect.dashPathEffect(floatArrayOf(10f, 10f)),
+                                    width = 4f,
+                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f)),
                                     cap = StrokeCap.Round,
                                 ),
                             )
                         }
                     }
 
-                    if (measurementPoints.isNotEmpty()) {
-                        val measurementPath = Path().apply {
-                            measurementPoints.forEachIndexed { index, point ->
-                                val offset = project(point.first, point.second)
-                                if (index == 0) moveTo(offset.x, offset.y) else lineTo(offset.x, offset.y)
+                    selectedPointIndex?.let { index ->
+                        measurementPoints.getOrNull(index)?.let { point ->
+                            tooltipPoint?.let { offset ->
+                                Surface(
+                                    modifier = Modifier.offset {
+                                        IntOffset(
+                                            x = (offset.x - 54.dp.toPx()).roundToInt().coerceAtLeast(0),
+                                            y = (offset.y - 72.dp.toPx()).roundToInt().coerceAtLeast(0),
+                                        )
+                                    },
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                                    tonalElevation = 6.dp,
+                                    shadowElevation = 8.dp,
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                    ) {
+                                        val record = records.find { growth ->
+                                            ChronoUnit.DAYS.between(profile?.birthday ?: growth.date, growth.date).toInt() == point.first
+                                        }
+                                        Text(
+                                            text = record?.date?.formatDate() ?: "第 ${point.first / 30} 月",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                        Text(
+                                            text = "${metric.label} ${point.second.formatMetric(metric)}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                        reference?.percentileBand(point.first, point.second)?.let { band ->
+                                            Text(
+                                                text = "WHO $band",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
-                        
-                        val pathMeasure = androidx.compose.ui.graphics.PathMeasure()
-                        pathMeasure.setPath(measurementPath, false)
-                        val animatedPath = Path()
-                        pathMeasure.getSegment(0f, pathMeasure.length * animProgress, animatedPath, true)
-                        
-                        // Draw gradient fill
-                        val fillPath = Path().apply {
-                            addPath(animatedPath)
-                            if (measurementPoints.isNotEmpty() && animProgress > 0f) {
-                                val firstOffset = project(measurementPoints.first().first, measurementPoints.first().second)
-                                val lastIndex = (measurementPoints.size * animProgress).toInt().coerceAtMost(measurementPoints.size - 1)
-                                val lastOffset = project(measurementPoints[lastIndex].first, measurementPoints[lastIndex].second)
-                                lineTo(lastOffset.x, height - verticalPadding)
-                                lineTo(firstOffset.x, height - verticalPadding)
-                                close()
-                            }
-                        }
-                        
-                        drawPath(
-                            path = fillPath,
-                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                                colors = listOf(primaryColor.copy(alpha = 0.4f), androidx.compose.ui.graphics.Color.Transparent),
-                                startY = verticalPadding,
-                                endY = height - verticalPadding
-                            )
-                        )
-
-                        if (measurementPoints.size > 1) {
-                            drawPath(
-                                path = animatedPath,
-                                color = primaryColor,
-                                style = Stroke(width = 8f, cap = StrokeCap.Round),
-                            )
-                        }
-                        
-                        val pointsToDraw = (measurementPoints.size * animProgress).toInt()
-                        measurementPoints.take(pointsToDraw + 1).forEach { point ->
-                            drawCircle(color = accentColor, radius = 9f, center = project(point.first, point.second))
-                        }
-                    }
-                    if (predictionPoints.isNotEmpty()) {
-                        val predictionPath = Path().apply {
-                            predictionPoints.forEachIndexed { index, point ->
-                                val offset = project(point.first, point.second)
-                                if (index == 0) moveTo(offset.x, offset.y) else lineTo(offset.x, offset.y)
-                            }
-                        }
-                        drawPath(
-                            path = predictionPath,
-                            color = accentColor.copy(alpha = 0.7f * animProgress),
-                            style = Stroke(
-                                width = 4f,
-                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f)),
-                                cap = StrokeCap.Round,
-                            ),
-                        )
                     }
                 }
                 Text(
@@ -1218,7 +1461,7 @@ private fun VaccineReactionDialog(
         onDismissRequest = onDismiss,
         title = { Text("${vaccine.vaccineName} 接种反应") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1229,7 +1472,7 @@ private fun VaccineReactionDialog(
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                 ) {
                     ReactionSeverity.entries.forEach { severity ->
                         FilterChip(
@@ -1288,7 +1531,7 @@ fun AddGrowthDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial == null) "添加生长记录" else "编辑生长记录") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 NativeDatePickerField(
                     value = date,
                     onValueChange = { date = it },
@@ -1371,6 +1614,30 @@ private fun buildMeasurementPoints(
             }
             if (ageDays < 0 || value == null) null else ageDays to value
         }
+}
+
+private fun projectGrowthChartPoint(
+    ageDays: Int,
+    value: Float,
+    chartSize: IntSize,
+    visibleMaxAgeDays: Int,
+    minY: Float,
+    maxY: Float,
+): Offset {
+    val width = chartSize.width.toFloat()
+    val height = chartSize.height.toFloat()
+    val horizontalPadding = 52f
+    val rightPadding = 42f
+    val verticalPadding = 28f
+    val ySpread = (maxY - minY).takeIf { it > 0f } ?: 1f
+    val chartWidth = width - horizontalPadding - rightPadding
+    val chartHeight = height - verticalPadding * 2
+    val xProgress = ageDays.toFloat() / visibleMaxAgeDays.coerceAtLeast(1)
+    val yProgress = (value - minY) / ySpread
+    return Offset(
+        x = horizontalPadding + chartWidth * xProgress,
+        y = height - verticalPadding - chartHeight * yProgress,
+    )
 }
 
 private fun determineChartWindowDays(

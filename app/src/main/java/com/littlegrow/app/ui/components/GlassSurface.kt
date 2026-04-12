@@ -86,7 +86,7 @@ fun GlassSurface(
             .softShadow(elevation = shadowElevation, shape = shape, color = shadowColor),
         shape = shape,
         color = Color.Transparent,
-        border = BorderStroke(0.8.dp, Color(0xFFB0B2AF).copy(alpha = 0.15f)),
+        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f)),
     ) {
         androidx.compose.foundation.layout.Box(
             modifier = Modifier.drawWithCache {

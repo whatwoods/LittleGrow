@@ -83,6 +83,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.littlegrow.app.ui.theme.Spacing
 import androidx.core.content.ContextCompat
 import com.littlegrow.app.BuildConfig
 import com.littlegrow.app.data.AppTheme
@@ -229,21 +230,21 @@ fun SettingsScreen(
 
     Column(
         modifier = Modifier.fillMaxSize().padding(
-            top = contentPadding.calculateTopPadding() + 16.dp,
+            top = contentPadding.calculateTopPadding() + Spacing.lg,
         )
     ) {
         GlassSurface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
             alpha = 0.82f,
             shape = RoundedCornerShape(28.dp),
             accentColor = MaterialTheme.colorScheme.secondary,
-            shadowElevation = 20.dp,
+            shadowElevation = Spacing.lg2,
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                modifier = Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.sm)
             ) {
                 if (currentCategory != null) {
                     IconButton(onClick = { currentCategory = null }) {
@@ -254,12 +255,12 @@ fun SettingsScreen(
                     currentCategory?.title ?: "设置",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.md, vertical = 10.dp),
                     color = MaterialTheme.colorScheme.primary
                 )
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(Spacing.lg))
 
         AnimatedContent(
             targetState = currentCategory,
@@ -270,15 +271,15 @@ fun SettingsScreen(
         ) { category ->
             LazyColumn(
                 contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding() + 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(Spacing.lg),
                 modifier = Modifier.fillMaxSize()
             ) {
                 if (category == null) {
                     item {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                             SettingsCategory.entries.forEach { cat ->
                                 ElevatedCard(
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
                                     onClick = { currentCategory = cat },
                                     shape = RoundedCornerShape(24.dp)
                                 ) {
@@ -302,11 +303,11 @@ fun SettingsScreen(
                     }
                     if (errorText != null) {
                         item {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            ElevatedCard(modifier = Modifier.padding(horizontal = 16.dp)) { 
+                            Spacer(modifier = Modifier.height(Spacing.lg))
+                            ElevatedCard(modifier = Modifier.padding(horizontal = Spacing.lg)) { 
                                 Text(
                                     errorText!!,
-                                    modifier = Modifier.padding(16.dp),
+                                    modifier = Modifier.padding(Spacing.lg),
                                     color = MaterialTheme.colorScheme.error,
                                 )
                             }
@@ -316,17 +317,17 @@ fun SettingsScreen(
                     item {
                         when (category) {
                             SettingsCategory.PROFILE -> {
-                                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg)) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                        .padding(Spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.lg),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),        
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.lg),        
                     ) {
                         BabyAvatar(
                             avatarPath = avatarAttachment.photoPath,
@@ -395,7 +396,7 @@ fun SettingsScreen(
             }
                             }
                             SettingsCategory.NOTIFICATIONS -> {
-                                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg)) {
                 Column {
                     NotificationListItem(
                         title = "疫苗接种提醒",
@@ -453,12 +454,12 @@ fun SettingsScreen(
             }
                             }
                             SettingsCategory.APPEARANCE -> {
-                                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg)) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                        .padding(Spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.lg),
                 ) {
                     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                         ThemeMode.entries.forEachIndexed { index, mode ->
@@ -546,8 +547,8 @@ fun SettingsScreen(
                     Text("应用风格", style = MaterialTheme.typography.labelLarge)   
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md)
                     ) {
                         AppTheme.entries.forEach { theme ->
                             ThemeStyleCard(
@@ -562,12 +563,12 @@ fun SettingsScreen(
             }
                             }
                             SettingsCategory.DATA -> {
-                                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg)) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                        .padding(Spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.lg),
                 ) {
                     FilterChipSection(
                         title = "自动备份频率",
@@ -639,7 +640,7 @@ fun SettingsScreen(
                     )
 
                     if (isExporting) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp))
                             Text("处理中...", style = MaterialTheme.typography.bodyMedium)
                         }
@@ -650,17 +651,17 @@ fun SettingsScreen(
             }
                             }
                             SettingsCategory.MODULES -> {
-                                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg)) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                        .padding(Spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.lg),
                 ) {
                     Text("首页显示模块", style = MaterialTheme.typography.labelLarge)
                     FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                     ) {
                         HomeModule.entries.forEach { module ->
                             FilterChip(
@@ -702,8 +703,8 @@ fun SettingsScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        .padding(horizontal = Spacing.lg),
+                                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                                 ) {
                                     Text("长呀长 - LittleGrow", fontWeight = FontWeight.SemiBold)   
                                     Text("版本 ${BuildConfig.VERSION_NAME}", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -725,9 +726,9 @@ fun SettingsScreen(
 
 @Composable
 private fun SettingsSectionTitle(title: String) {
-    Row(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(width = 4.dp, height = 16.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.primary))
-        Spacer(modifier = Modifier.size(8.dp))
+    Row(modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(width = 4.dp, height = Spacing.lg).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.primary))
+        Spacer(modifier = Modifier.size(Spacing.sm))
         Text(
             text = title,
             color = MaterialTheme.colorScheme.primary,
@@ -776,7 +777,7 @@ private fun ThemeStyleCard(
 ) {
     val preview = theme.previewColors()
     val scale by animateFloatAsState(if (selected) 1.05f else 1f, label = "scale")
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(Spacing.lg2)
     val cardModifier = modifier
         .scale(scale)
         .clip(shape)
@@ -789,7 +790,7 @@ private fun ThemeStyleCard(
             shape = shape,
             tintColor = MaterialTheme.colorScheme.primaryContainer,
             accentColor = preview.primary,
-            shadowElevation = 16.dp,
+            shadowElevation = Spacing.lg,
         ) {
             ThemeStyleCardContent(theme = theme, preview = preview, selected = true)
         }
@@ -813,7 +814,7 @@ private fun ThemeStyleCardContent(
 ) {
     Column(
         modifier = Modifier.padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         Box {
             ThemePreviewStrip(preview = preview)
@@ -841,7 +842,7 @@ private fun ThemePreviewStrip(preview: ThemePreviewColors) {
         modifier = Modifier
             .fillMaxWidth()
             .height(68.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(Spacing.lg))
             .background(preview.background),
     ) {
         // Mock Mini UI inside preview
@@ -850,7 +851,7 @@ private fun ThemePreviewStrip(preview: ThemePreviewColors) {
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Box(modifier = Modifier.size(width = 40.dp, height = 8.dp).background(preview.primary, RoundedCornerShape(4.dp)))
+                Box(modifier = Modifier.size(width = 40.dp, height = Spacing.sm).background(preview.primary, RoundedCornerShape(4.dp)))
                 ThemeColorDot(preview.primary)
             }
             Box(modifier = Modifier.fillMaxWidth().height(24.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp)))
@@ -879,7 +880,7 @@ private fun ThemeColorBar(
 ) {
     Box(
         modifier = modifier
-            .height(12.dp)
+            .height(Spacing.md)
             .clip(RoundedCornerShape(999.dp))
             .background(color),
     )

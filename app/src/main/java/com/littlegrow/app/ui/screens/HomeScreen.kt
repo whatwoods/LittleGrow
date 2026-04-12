@@ -14,16 +14,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,17 +59,22 @@ import com.littlegrow.app.ui.formatDate
 import com.littlegrow.app.ui.formatDateTime
 import com.littlegrow.app.ui.formatMetric
 import com.littlegrow.app.ui.formatMinutes
+import com.littlegrow.app.ui.components.CardTone
 import com.littlegrow.app.ui.components.ExpressiveFilledTonalButton as FilledTonalButton
 import com.littlegrow.app.ui.components.ExpressiveFilterChip as FilterChip
 import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
-import com.littlegrow.app.ui.components.EmptyState
+import com.littlegrow.app.ui.components.EmptyRecordCard
 import com.littlegrow.app.ui.components.GlassSurface
+import com.littlegrow.app.ui.components.InfoCard
+import com.littlegrow.app.ui.components.staggeredFadeSlideIn
+import com.littlegrow.app.ui.theme.semanticColors
 import com.littlegrow.app.ui.theme.Spacing
 import com.littlegrow.app.ui.theme.ContentAlpha
 import com.littlegrow.app.ui.theme.softShadow
 import java.time.Duration
 import java.time.temporal.ChronoUnit
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     summary: HomeSummary,
@@ -79,7 +87,9 @@ fun HomeScreen(
     vaccines: List<VaccineEntity>,
     caregivers: List<String>,
     caregiverFilter: String?,
+    refreshing: Boolean,
     contentPadding: PaddingValues,
+    onRefresh: () -> Unit,
     onCaregiverFilterChange: (String?) -> Unit,
     onDismissGuide: (Int) -> Unit,
     onOpenRecords: (RecordTab) -> Unit,
@@ -88,140 +98,211 @@ fun HomeScreen(
     onOpenMedicalSummary: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    LazyColumn(
-        contentPadding = PaddingValues(
-            start = Spacing.lg,
-            end = Spacing.lg,
-            top = contentPadding.calculateTopPadding() + Spacing.lg,
-            bottom = contentPadding.calculateBottomPadding() + Spacing.xl,
-        ),
-        verticalArrangement = Arrangement.spacedBy(Spacing.xl),
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = onRefresh,
     ) {
-        // 1. Hero Profile Card
-        item {
-            PostcardHeroCard(summary = summary)
-        }
-
-        // 2. Stats Bento Grid
-        item {
-            StatsBentoGrid(summary = summary)
-        }
-
-        // 3. Milestone Section
-        item {
-            MilestoneSection(
-                summary = summary,
-                onOpenTimeline = onOpenTimeline,
-            )
-        }
-
-        // 4. Daily Tip
-        if (encouragementText.isNotBlank()) {
+        LazyColumn(
+            contentPadding = PaddingValues(
+                start = Spacing.lg,
+                end = Spacing.lg,
+                top = contentPadding.calculateTopPadding() + Spacing.lg,
+                bottom = contentPadding.calculateBottomPadding() + Spacing.xl,
+            ),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xl),
+        ) {
+            // 1. Hero Profile Card
             item {
-                DailyTipCard(text = encouragementText)
+                Box(modifier = Modifier.staggeredFadeSlideIn(0)) {
+                    PostcardHeroCard(summary = summary)
+                }
             }
-        }
 
-        if (caregivers.isNotEmpty()) {
+            // 2. Stats Bento Grid
             item {
-                ElevatedCard {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text("看护人筛选", fontWeight = FontWeight.SemiBold)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Box(modifier = Modifier.staggeredFadeSlideIn(1)) {
+                    StatsBentoGrid(summary = summary)
+                }
+            }
+
+            // 3. Milestone Section
+            item {
+                Box(modifier = Modifier.staggeredFadeSlideIn(2)) {
+                    MilestoneSection(
+                        summary = summary,
+                        onOpenTimeline = onOpenTimeline,
+                    )
+                }
+            }
+
+            item {
+                Box(modifier = Modifier.staggeredFadeSlideIn(3)) {
+                    QuickActionGrid(
+                        onOpenRecords = onOpenRecords,
+                        onOpenGrowth = onOpenGrowth,
+                        onOpenTimeline = onOpenTimeline,
+                        onOpenMedicalSummary = onOpenMedicalSummary,
+                        onOpenSettings = onOpenSettings,
+                    )
+                }
+            }
+
+            // 4. Daily Tip
+            if (encouragementText.isNotBlank()) {
+                item {
+                    Box(modifier = Modifier.staggeredFadeSlideIn(4)) {
+                        DailyTipCard(text = encouragementText)
+                    }
+                }
+            }
+
+            if (caregivers.isNotEmpty()) {
+                item {
+                    Box(modifier = Modifier.staggeredFadeSlideIn(5)) {
+                        InfoCard(
+                            title = "看护人筛选",
+                            tone = CardTone.Default,
                         ) {
-                            FilterChip(
-                                selected = caregiverFilter == null,
-                                onClick = { onCaregiverFilterChange(null) },
-                                label = { Text("全部") },
-                            )
-                            caregivers.forEach { caregiver ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                            ) {
                                 FilterChip(
-                                    selected = caregiverFilter == caregiver,
-                                    onClick = { onCaregiverFilterChange(caregiver) },
-                                    label = { Text(caregiver) },
+                                    selected = caregiverFilter == null,
+                                    onClick = { onCaregiverFilterChange(null) },
+                                    label = { Text("全部") },
                                 )
+                                caregivers.forEach { caregiver ->
+                                    FilterChip(
+                                        selected = caregiverFilter == caregiver,
+                                        onClick = { onCaregiverFilterChange(caregiver) },
+                                        label = { Text(caregiver) },
+                                    )
+                                }
                             }
+                            Text(
+                                caregiverFilter?.let { "当前只看 $it 的记录摘要。" } ?: "当前显示全部看护人的记录摘要。",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
                         }
-                        Text(
-                            caregiverFilter?.let { "当前只看 $it 的记录摘要。" } ?: "当前显示全部看护人的记录摘要。",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
                     }
                 }
             }
-        }
 
-        activeModules.forEach { module ->
-            when (module) {
-                HomeModule.TODAY_SUMMARY -> {
-                    item { TodaySummarySection(summary = summary) }
-                }
-
-                HomeModule.RECENT_FEEDINGS -> {
-                    item { SectionLabel("最近喂养") }
-                    if (summary.recentFeedings.isEmpty()) {
-                        item { EmptyRecordCard("当前筛选下还没有喂养记录。") }
-                    } else {
-                        items(summary.recentFeedings) { feeding ->
-                            Box(modifier = Modifier.animateItem().padding(bottom = 8.dp)) {
-                                HomeFeedingCard(feeding)
-                            }
-                        }
-                    }
-                }
-
-                HomeModule.RECENT_SLEEP -> {
-                    item { SectionLabel("最近睡眠") }
-                    if (summary.recentSleeps.isEmpty()) {
-                        item { EmptyRecordCard("当前筛选下还没有睡眠记录。") }
-                    } else {
-                        items(summary.recentSleeps) { sleep ->
-                            Box(modifier = Modifier.animateItem().padding(bottom = 8.dp)) {
-                                HomeSleepCard(sleep)
-                            }
-                        }
-                    }
-                }
-
-                HomeModule.LATEST_GROWTH -> {
-                    item { LatestGrowthCard(summary) }
-                }
-
-                HomeModule.MILESTONE -> {
-                    item { LatestMilestoneCard(summary) }
-                }
-
-                HomeModule.VACCINE -> {
-                    item { VaccineReminderCard(vaccines = vaccines) }
-                }
-
-                HomeModule.TREND -> {
-                    item { TrendCard(trends = weeklyTrends) }
-                }
-
-                HomeModule.ROUTINE -> {
-                    item { RoutineCard(routineInsights = routineInsights) }
-                }
-
-                HomeModule.MEMORY -> {
-                    memoryOfTheDay?.let { memory ->
-                        item { MemoryCard(memory) }
-                    }
-                }
-
-                HomeModule.GUIDE -> {
-                    monthlyGuide?.let { guide ->
+            activeModules.forEachIndexed { index, module ->
+                val animationIndex = index + 6
+                when (module) {
+                    HomeModule.TODAY_SUMMARY -> {
                         item {
-                            MonthlyGuideCard(
-                                guide = guide,
-                                onDismiss = { onDismissGuide(guide.month) },
-                            )
+                            Box(modifier = Modifier.staggeredFadeSlideIn(animationIndex)) {
+                                TodaySummarySection(summary = summary)
+                            }
+                        }
+                    }
+
+                    HomeModule.RECENT_FEEDINGS -> {
+                        item {
+                            Box(modifier = Modifier.staggeredFadeSlideIn(animationIndex)) {
+                                SectionLabel("最近喂养")
+                            }
+                        }
+                        if (summary.recentFeedings.isEmpty()) {
+                            item {
+                                Box(modifier = Modifier.staggeredFadeSlideIn(animationIndex)) {
+                                    EmptyRecordCard("当前筛选下还没有喂养记录。")
+                                }
+                            }
+                        } else {
+                            itemsIndexed(summary.recentFeedings) { index, feeding ->
+                                Box(modifier = Modifier.animateItem().staggeredFadeSlideIn(animationIndex + index).padding(bottom = Spacing.sm)) {
+                                    HomeFeedingCard(feeding)
+                                }
+                            }
+                        }
+                    }
+
+                    HomeModule.RECENT_SLEEP -> {
+                        item {
+                            Box(modifier = Modifier.staggeredFadeSlideIn(animationIndex)) {
+                                SectionLabel("最近睡眠")
+                            }
+                        }
+                        if (summary.recentSleeps.isEmpty()) {
+                            item {
+                                Box(modifier = Modifier.staggeredFadeSlideIn(animationIndex)) {
+                                    EmptyRecordCard("当前筛选下还没有睡眠记录。")
+                                }
+                            }
+                        } else {
+                            itemsIndexed(summary.recentSleeps) { index, sleep ->
+                                Box(modifier = Modifier.animateItem().staggeredFadeSlideIn(animationIndex + index).padding(bottom = Spacing.sm)) {
+                                    HomeSleepCard(sleep)
+                                }
+                            }
+                        }
+                    }
+
+                    HomeModule.LATEST_GROWTH -> {
+                        item {
+                            Box(modifier = Modifier.staggeredFadeSlideIn(animationIndex)) {
+                                LatestGrowthCard(summary)
+                            }
+                        }
+                    }
+
+                    HomeModule.MILESTONE -> {
+                        item {
+                            Box(modifier = Modifier.staggeredFadeSlideIn(animationIndex)) {
+                                LatestMilestoneCard(summary)
+                            }
+                        }
+                    }
+
+                    HomeModule.VACCINE -> {
+                        item {
+                            Box(modifier = Modifier.staggeredFadeSlideIn(animationIndex)) {
+                                VaccineReminderCard(vaccines = vaccines)
+                            }
+                        }
+                    }
+
+                    HomeModule.TREND -> {
+                        item {
+                            Box(modifier = Modifier.staggeredFadeSlideIn(animationIndex)) {
+                                TrendCard(trends = weeklyTrends)
+                            }
+                        }
+                    }
+
+                    HomeModule.ROUTINE -> {
+                        item {
+                            Box(modifier = Modifier.staggeredFadeSlideIn(animationIndex)) {
+                                RoutineCard(routineInsights = routineInsights)
+                            }
+                        }
+                    }
+
+                    HomeModule.MEMORY -> {
+                        memoryOfTheDay?.let { memory ->
+                            item {
+                                Box(modifier = Modifier.staggeredFadeSlideIn(animationIndex)) {
+                                    MemoryCard(memory)
+                                }
+                            }
+                        }
+                    }
+
+                    HomeModule.GUIDE -> {
+                        monthlyGuide?.let { guide ->
+                            item {
+                                Box(modifier = Modifier.staggeredFadeSlideIn(animationIndex)) {
+                                    MonthlyGuideCard(
+                                        guide = guide,
+                                        onDismiss = { onDismissGuide(guide.month) },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -267,7 +348,7 @@ private fun PostcardHeroCard(summary: HomeSummary) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                    .padding(horizontal = Spacing.xl, vertical = Spacing.xl),
                 verticalArrangement = Arrangement.spacedBy(Spacing.lg),
             ) {
                 // Top row: name + age on left, avatar on right
@@ -294,7 +375,7 @@ private fun PostcardHeroCard(summary: HomeSummary) {
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(Spacing.lg))
 
                     // Avatar (96dp circle with white border)
                     if (avatarPath.isNullOrBlank()) {
@@ -331,17 +412,17 @@ private fun PostcardHeroCard(summary: HomeSummary) {
                 // 2-column stats grid for weight and height
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                 ) {
                     // Weight stat
                     val growth = summary.latestGrowth
                     Surface(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(Spacing.md),
                         color = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.6f),
                     ) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(Spacing.lg),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             Text(
@@ -374,11 +455,11 @@ private fun PostcardHeroCard(summary: HomeSummary) {
                     // Height stat
                     Surface(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(Spacing.md),
                         color = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.6f),
                     ) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(Spacing.lg),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             Text(
@@ -423,17 +504,17 @@ private fun StatsBentoGrid(summary: HomeSummary) {
 
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         // Left: Feeding card (wider, ~58%)
         Surface(
             modifier = Modifier.weight(0.58f),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(Spacing.md),
             color = MaterialTheme.colorScheme.secondaryContainer,
         ) {
             Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(Spacing.lg2),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
                 Text(
                     text = "最近喂奶",
@@ -469,12 +550,12 @@ private fun StatsBentoGrid(summary: HomeSummary) {
         // Right: Sleep card (~42%)
         Surface(
             modifier = Modifier.weight(0.42f),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(Spacing.md),
             color = MaterialTheme.colorScheme.tertiaryContainer,
         ) {
             Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(Spacing.lg2),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
                 Text(
                     text = "睡眠",
@@ -514,7 +595,7 @@ private fun MilestoneSection(
     onOpenTimeline: () -> Unit,
 ) {
     val milestone = summary.latestMilestone
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
         // Section header
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -541,19 +622,19 @@ private fun MilestoneSection(
             // Milestone item
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(Spacing.md),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(Spacing.lg),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
                 ) {
                     // 64dp icon area with primaryContainer/30 background
                     Box(
                         modifier = Modifier
                             .size(64.dp)
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(Spacing.md))
                             .background(
                                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
                             ),
@@ -611,12 +692,12 @@ private fun MilestoneSection(
         } else {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(Spacing.md),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
             ) {
                 Text(
                     text = "还没有里程碑记录，快去记录宝宝的第一个里程碑吧！",
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(Spacing.lg),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -642,19 +723,19 @@ private fun DailyTipCard(text: String) {
                     size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height),
                 )
             },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(Spacing.md),
         color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Row(
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(start = Spacing.lg2, end = Spacing.lg2, top = Spacing.lg2, bottom = Spacing.lg2),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             verticalAlignment = Alignment.Top,
         ) {
             Icon(
                 imageVector = Icons.Rounded.Today,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(Spacing.xl),
             )
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
@@ -697,15 +778,15 @@ private fun QuickActionGrid(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text("快捷操作", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
             androidx.compose.foundation.layout.FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
                 FilledTonalButton(onClick = { triggerHapticAndRun { onOpenRecords(RecordTab.FEEDING) } }) { Text("记喂奶") }
                 FilledTonalButton(onClick = { triggerHapticAndRun { onOpenRecords(RecordTab.SLEEP) } }) { Text("记睡眠") }
@@ -725,11 +806,11 @@ private fun TodaySummarySection(summary: HomeSummary) {
     val ageMonths = summary.profile?.birthday?.let { ChronoUnit.MONTHS.between(it, java.time.LocalDate.now()).toInt() }
     val feedingRange = ageMonths?.let(AgeBasedReference::feedingTimesPerDay)
     val sleepRange = ageMonths?.let(AgeBasedReference::sleepHoursPerDay)
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
         SectionLabel("今日摘要")
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             SummaryCard(
                 modifier = Modifier.weight(1f),
@@ -756,10 +837,7 @@ private fun TodaySummarySection(summary: HomeSummary) {
 
 @Composable
 private fun LatestGrowthCard(summary: HomeSummary) {
-    SectionCard(
-        title = "最近体重",
-        emptyText = "还没有生长记录。",
-    ) {
+    InfoCard(title = "最近体重") {
         val growth = summary.latestGrowth
         if (growth == null) {
             Text("还没有生长记录。", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -772,10 +850,7 @@ private fun LatestGrowthCard(summary: HomeSummary) {
 
 @Composable
 private fun LatestMilestoneCard(summary: HomeSummary) {
-    SectionCard(
-        title = "最近里程碑",
-        emptyText = "还没有里程碑记录。",
-    ) {
+    InfoCard(title = "最近里程碑") {
         val milestone = summary.latestMilestone
         if (milestone == null) {
             Text("还没有里程碑记录。", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -793,10 +868,7 @@ private fun LatestMilestoneCard(summary: HomeSummary) {
 private fun VaccineReminderCard(vaccines: List<VaccineEntity>) {
     val pending = vaccines.filterNot { it.isDone }.sortedBy { it.scheduledDate }
     val overdue = pending.filter { it.scheduledDate.isBefore(java.time.LocalDate.now().minusDays(30)) }
-    SectionCard(
-        title = "疫苗提醒",
-        emptyText = "当前没有待接种疫苗。",
-    ) {
+    InfoCard(title = "疫苗提醒") {
         if (pending.isEmpty()) {
             Text("当前没有待接种疫苗。", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
@@ -812,18 +884,15 @@ private fun VaccineReminderCard(vaccines: List<VaccineEntity>) {
 
 @Composable
 private fun TrendCard(trends: List<TrendInsight>) {
-    SectionCard(
-        title = "本周趋势",
-        emptyText = "最近两周数据还不够，暂时看不出明显变化。",
-    ) {
+    InfoCard(title = "本周趋势") {
         if (trends.isEmpty()) {
             Text("最近两周数据还不够，暂时看不出明显变化。", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 trends.take(3).forEach { trend ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                     ) {
                         ReferenceBadgeComposable(
                             text = trend.category,
@@ -843,10 +912,7 @@ private fun TrendCard(trends: List<TrendInsight>) {
 
 @Composable
 private fun RoutineCard(routineInsights: List<RoutineInsight>) {
-    SectionCard(
-        title = "作息规律",
-        emptyText = "再多记录几天，系统会帮你识别更明显的规律。",
-    ) {
+    InfoCard(title = "作息规律") {
         if (routineInsights.isEmpty()) {
             Text("再多记录几天，系统会帮你识别更明显的规律。", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
@@ -864,8 +930,8 @@ private fun RoutineCard(routineInsights: List<RoutineInsight>) {
 
 @Composable
 private fun MemoryCard(memory: MemorySnapshot) {
-    SectionCard(title = memory.title, emptyText = "暂无成长回忆。") {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    InfoCard(title = memory.title) {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             memory.lines.forEach { line -> Text(line) }
             memory.photoPaths.forEach { path ->
                 PhotoPreviewCard(filePath = path, contentDescription = memory.title)
@@ -883,7 +949,7 @@ private fun MonthlyGuideCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(
@@ -914,49 +980,6 @@ private fun GuideBlock(
         items.forEach { item ->
             Text("- $item", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-    }
-}
-
-@Composable
-private fun SectionCard(
-    title: String,
-    emptyText: String,
-    content: @Composable () -> Unit,
-) {
-    ElevatedCard(modifier = Modifier.softShadow()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            content()
-        }
-    }
-}
-
-@Composable
-private fun EmptyRecordCard(text: String) {
-    GlassSurface(
-        modifier = Modifier.fillMaxWidth(),
-        alpha = 0.58f,
-        shape = MaterialTheme.shapes.large,
-        accentColor = MaterialTheme.colorScheme.secondary,
-        shadowElevation = 10.dp,
-    ) {
-        EmptyState(
-            title = "暂无记录",
-            description = text,
-            illustration = {
-                Icon(
-                    imageVector = Icons.Rounded.Today,
-                    contentDescription = null,
-                    modifier = Modifier.size(48.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                )
-            }
-        )
     }
 }
 
@@ -998,7 +1021,7 @@ private fun HomeFeedingCard(feeding: FeedingEntity) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(feeding.type.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -1023,7 +1046,7 @@ private fun HomeSleepCard(sleep: SleepEntity) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text("睡眠", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -1068,14 +1091,3 @@ private fun ReferenceBadgeComposable(
     }
 }
 
-private fun referenceColor(
-    value: Double,
-    min: Double,
-    max: Double,
-): Color {
-    return when {
-        value < min -> Color(0xFFFFE7C2)
-        value > max -> Color(0xFFFFD7C9)
-        else -> Color(0xFFD9F1D7)
-    }
-}

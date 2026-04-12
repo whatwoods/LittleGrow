@@ -8,6 +8,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Today
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +23,30 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.littlegrow.app.ui.theme.ContentAlpha
 import com.littlegrow.app.ui.theme.Spacing
+
+@Composable
+fun EmptyRecordCard(text: String, modifier: Modifier = Modifier) {
+    GlassSurface(
+        modifier = modifier.fillMaxWidth(),
+        alpha = 0.58f,
+        shape = MaterialTheme.shapes.large,
+        accentColor = MaterialTheme.colorScheme.secondary,
+        shadowElevation = 10.dp,
+    ) {
+        EmptyState(
+            title = "暂无记录",
+            description = text,
+            illustration = {
+                Icon(
+                    imageVector = Icons.Rounded.Today,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+            }
+        )
+    }
+}
 
 /** Visual "tone" for card variants. Default keeps original M3 ElevatedCard style. */
 enum class CardTone {

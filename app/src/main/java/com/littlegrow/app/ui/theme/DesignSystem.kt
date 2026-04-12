@@ -7,6 +7,7 @@ object Spacing {
     val sm = 8.dp
     val md = 12.dp
     val lg = 16.dp
+    val lg2 = 20.dp
     val xl = 24.dp
     val xxl = 32.dp
 }

@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -42,11 +43,13 @@ import androidx.compose.material.icons.rounded.Wash
 import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -68,6 +71,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.littlegrow.app.ui.theme.Spacing
 import com.littlegrow.app.BreastfeedingTimerState
 import com.littlegrow.app.RecordQuickAction
 import com.littlegrow.app.data.ActivityDraft
@@ -89,11 +93,14 @@ import com.littlegrow.app.ui.PhotoPreviewCard
 import com.littlegrow.app.ui.components.AdaptiveActionBar
 import com.littlegrow.app.ui.components.AdaptiveActionBarItem
 import com.littlegrow.app.ui.components.AdaptiveActionBarItemStyle
+import com.littlegrow.app.ui.components.EmptyRecordCard
 import com.littlegrow.app.ui.components.GlassSurface
+import com.littlegrow.app.ui.components.staggeredFadeSlideIn
 import com.littlegrow.app.ui.components.ExpressiveOutlinedButton as OutlinedButton
 import com.littlegrow.app.ui.components.ExpressiveTextButton as TextButton
 import com.littlegrow.app.ui.formatDate
 import com.littlegrow.app.ui.formatDateTime
+import com.littlegrow.app.ui.theme.semanticColors
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -106,6 +113,7 @@ import java.time.format.DateTimeFormatter
 
 private val timeOnlyFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecordsScreen(
     selectedTab: RecordTab,
@@ -121,7 +129,9 @@ fun RecordsScreen(
     breastfeedingTimer: BreastfeedingTimerState,
     pendingQuickAction: RecordQuickAction?,
     feedingFormDefaults: FeedingFormDefaults,
+    refreshing: Boolean,
     contentPadding: PaddingValues,
+    onRefresh: () -> Unit,
     onSelectTab: (RecordTab) -> Unit,
     onConsumeQuickAction: () -> Unit,
     onStartBreastfeedingTimer: (FeedingType) -> Unit,
@@ -172,57 +182,59 @@ fun RecordsScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        AnimatedContent(
-            targetState = showingTabDetail,
-            transitionSpec = {
-                if (targetState) {
-                    (slideInHorizontally { it / 3 } + fadeIn()) togetherWith
-                        (slideOutHorizontally { -it / 3 } + fadeOut())
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = onRefresh,
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            AnimatedContent(
+                targetState = showingTabDetail,
+                transitionSpec = {
+                    if (targetState) {
+                        (slideInHorizontally { it / 3 } + fadeIn()) togetherWith
+                            (slideOutHorizontally { -it / 3 } + fadeOut())
+                    } else {
+                        (slideInHorizontally { -it / 3 } + fadeIn()) togetherWith
+                            (slideOutHorizontally { it / 3 } + fadeOut())
+                    }
+                },
+                label = "records-view-switch",
+            ) { isDetail ->
+                if (!isDetail) {
+                    BentoOverview(
+                        feedings = feedings,
+                        sleeps = sleeps,
+                        diapers = diapers,
+                        contentPadding = contentPadding,
+                        onSelectTab = { tab ->
+                            onSelectTab(tab)
+                            showingTabDetail = true
+                        },
+                        onViewAllRecent = {
+                            showingTabDetail = true
+                        },
+                    )
                 } else {
-                    (slideInHorizontally { -it / 3 } + fadeIn()) togetherWith
-                        (slideOutHorizontally { it / 3 } + fadeOut())
-                }
-            },
-            label = "records-view-switch",
-        ) { isDetail ->
-            if (!isDetail) {
-                // Bento overview (hero + grid + recent activity)
-                BentoOverview(
-                    feedings = feedings,
-                    sleeps = sleeps,
-                    diapers = diapers,
-                    contentPadding = contentPadding,
-                    onSelectTab = { tab ->
-                        onSelectTab(tab)
-                        showingTabDetail = true
-                    },
-                    onViewAllRecent = {
-                        showingTabDetail = true
-                    },
-                )
-            } else {
-                // Detail tab view with back navigation
-                Column(modifier = Modifier.padding(top = contentPadding.calculateTopPadding())) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 4.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        IconButton(onClick = { showingTabDetail = false }) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                                contentDescription = "返回",
+                    Column(modifier = Modifier.padding(top = contentPadding.calculateTopPadding())) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            IconButton(onClick = { showingTabDetail = false }) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                    contentDescription = "返回",
+                                )
+                            }
+                            Text(
+                                text = selectedTab.label,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
                             )
                         }
-                        Text(
-                            text = selectedTab.label,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                    when (selectedTab) {
+                        when (selectedTab) {
                         RecordTab.FEEDING -> FeedingsTab(
                             items = feedings,
                             timerState = breastfeedingTimer,
@@ -269,6 +281,7 @@ fun RecordsScreen(
                             onOpenBatchRecord = { onOpenBatchRecord(RecordTab.ACTIVITY) },
                             onOpenHandoverSummary = onOpenHandoverSummary,
                         )
+                        }
                     }
                 }
             }
@@ -283,7 +296,7 @@ fun RecordsScreen(
             title = { Text("开始母乳计时") },
             text = { Text("选择本次先喂哪一侧。") },
             confirmButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     TextButton(onClick = { onStartBreastfeedingTimer(FeedingType.BREAST_LEFT); showTimerStarter = false }) { Text("左侧开始") }
                     TextButton(onClick = { onStartBreastfeedingTimer(FeedingType.BREAST_RIGHT); showTimerStarter = false }) { Text("右侧开始") }
                 }
@@ -350,10 +363,10 @@ private fun BentoOverview(
 
     LazyColumn(
         contentPadding = PaddingValues(
-            top = contentPadding.calculateTopPadding() + 16.dp,
+            top = contentPadding.calculateTopPadding() + Spacing.lg,
             bottom = contentPadding.calculateBottomPadding() + 96.dp,
-            start = 20.dp,
-            end = 20.dp,
+            start = Spacing.lg2,
+            end = Spacing.lg2,
         ),
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
@@ -366,20 +379,20 @@ private fun BentoOverview(
         item(key = "bento-grid") {
             Column(
                 modifier = Modifier.padding(bottom = 36.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                 ) {
                     // Feeding card
                     BentoGridCard(
                         label = "喂奶",
                         icon = Icons.Rounded.LocalDining,
-                        cardColor = Color.White.copy(alpha = 0.70f),
-                        iconBackgroundColor = Color(0xFFFFF3E0),
-                        iconTint = Color(0xFFE65100),
-                        labelColor = Color(0xFFBF360C),
+                        cardColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.70f),
+                        iconBackgroundColor = MaterialTheme.semanticColors.feedingAccentBg,
+                        iconTint = MaterialTheme.semanticColors.feedingAccent,
+                        labelColor = MaterialTheme.semanticColors.feedingAccent,
                         modifier = Modifier.weight(1f),
                         onClick = { onSelectTab(RecordTab.FEEDING) },
                     )
@@ -397,7 +410,7 @@ private fun BentoOverview(
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                 ) {
                     // Sleep card
                     BentoGridCard(
@@ -430,7 +443,7 @@ private fun BentoOverview(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                    .padding(bottom = Spacing.lg),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom,
             ) {
@@ -455,10 +468,10 @@ private fun BentoOverview(
                 EmptyRecordCard("还没有今天的记录，快去添加第一条吧。")
             }
         } else {
-            items(recentItems, key = { it.uniqueKey }) { item ->
+            itemsIndexed(recentItems, key = { _, it -> it.uniqueKey }) { index, item ->
                 RecentActivityItem(
                     item = item,
-                    modifier = Modifier.padding(bottom = 12.dp),
+                    modifier = Modifier.staggeredFadeSlideIn(index + 1).padding(bottom = Spacing.md),
                 )
             }
         }
@@ -533,18 +546,18 @@ private fun BentoGridCard(
         modifier = modifier
             .shadow(
                 elevation = 2.dp,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(Spacing.lg),
                 ambientColor = Color.Black.copy(alpha = 0.04f),
                 spotColor = Color.Black.copy(alpha = 0.04f),
             ),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(Spacing.lg),
         color = cardColor,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.20f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.20f)),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 24.dp, horizontal = 16.dp),
+                .padding(vertical = 24.dp, horizontal = Spacing.lg),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -604,9 +617,9 @@ private fun buildRecentActivityList(
                 f.foodName?.let { add(it) }
             }.joinToString(", ").ifEmpty { "已记录" },
             icon = Icons.Rounded.Restaurant,
-            borderColor = Color(0xFFFFA726),
-            iconBackgroundColor = Color(0xFFFFF3E0),
-            iconTint = Color(0xFFE65100),
+            borderColor = Color.Unspecified,
+            iconBackgroundColor = Color.Unspecified,
+            iconTint = Color.Unspecified,
         )
     }
     val sleepItems = sleeps.map { s ->
@@ -664,19 +677,19 @@ private fun RecentActivityItem(
 
     // Resolve themed colors for sleep/diaper items
     val borderColor = when (item.category) {
-        "feeding" -> item.borderColor
+        "feeding" -> MaterialTheme.semanticColors.feedingAccent
         "sleep" -> colors.tertiary
         "diaper" -> colors.secondary
         else -> colors.outline
     }
     val iconBg = when (item.category) {
-        "feeding" -> item.iconBackgroundColor
+        "feeding" -> MaterialTheme.semanticColors.feedingAccentBg
         "sleep" -> colors.tertiaryContainer.copy(alpha = 0.20f)
         "diaper" -> colors.secondaryContainer.copy(alpha = 0.30f)
         else -> colors.surfaceVariant
     }
     val iconTint = when (item.category) {
-        "feeding" -> item.iconTint
+        "feeding" -> MaterialTheme.semanticColors.feedingAccent
         "sleep" -> colors.tertiary
         "diaper" -> colors.secondary
         else -> colors.onSurfaceVariant
@@ -687,11 +700,11 @@ private fun RecentActivityItem(
             .fillMaxWidth()
             .shadow(
                 elevation = 1.dp,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(Spacing.md),
                 ambientColor = Color.Black.copy(alpha = 0.02f),
                 spotColor = Color.Black.copy(alpha = 0.02f),
             ),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(Spacing.md),
         color = colors.surfaceContainerLowest,
     ) {
         Row(
@@ -708,7 +721,7 @@ private fun RecentActivityItem(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                    .padding(horizontal = Spacing.lg, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
@@ -808,9 +821,9 @@ private fun FeedingsTab(
                 }.joinToString(" · ")
                 ActivityListItem(
                     icon = Icons.Rounded.Restaurant,
-                    iconColor = Color(0xFFEA580C),
-                    iconBgColor = Color(0xFFFFF7ED),
-                    borderColor = Color(0xFFFB923C),
+                    iconColor = MaterialTheme.semanticColors.feedingAccent,
+                    iconBgColor = MaterialTheme.semanticColors.feedingAccentBg,
+                    borderColor = MaterialTheme.semanticColors.feedingAccent,
                     title = feeding.type.label,
                     time = feeding.happenedAt.formatDateTime(),
                     description = detail,
@@ -831,7 +844,7 @@ private fun FeedingsTab(
                         }
                     }
                     feeding.photoPath?.let {
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(Spacing.sm))
                         PhotoPreviewCard(filePath = it, contentDescription = "辅食照片")
                     }
                 }
@@ -854,9 +867,9 @@ private fun BottleAmountTrendCard(items: List<FeedingEntity>) {
         }
     }
     ElevatedCard {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.fillMaxWidth().padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("奶量趋势", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 listOf(7, 14, 30).forEach { days ->
                     OutlinedButton(onClick = { rangeDays = days }) { Text("最近 $days 天") }
                 }
@@ -887,13 +900,13 @@ private fun BreastfeedingTimerCard(
         }
     }
     ElevatedCard {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.fillMaxWidth().padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("母乳计时器", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             if (!timerState.isRunning) {
                 feedingFormDefaults.breastSideHint?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
                 val preferredSide = if (feedingFormDefaults.defaultType == FeedingType.BREAST_RIGHT) FeedingType.BREAST_RIGHT else FeedingType.BREAST_LEFT
                 val secondarySide = if (preferredSide == FeedingType.BREAST_LEFT) FeedingType.BREAST_RIGHT else FeedingType.BREAST_LEFT
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     TimerActionButton("${preferredSide.label.removePrefix("母乳")}开始", Modifier.weight(1f)) { onStartTimer(preferredSide) }
                     TimerActionButton("${secondarySide.label.removePrefix("母乳")}开始", Modifier.weight(1f)) { onStartTimer(secondarySide) }
                 }
@@ -903,7 +916,7 @@ private fun BreastfeedingTimerCard(
                 val startedText = LocalDateTime.ofInstant(Instant.ofEpochMilli(startedAt), ZoneId.systemDefault()).formatDateTime()
                 Text("${timerState.activeType?.label} · ${elapsedSeconds.formatStopwatch()}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text("开始于 $startedText", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     TimerActionButton("结束并保存", Modifier.weight(1f), onSaveTimer)
                     TimerActionButton("取消", Modifier.weight(1f), onCancelTimer)
                 }
@@ -933,7 +946,7 @@ private fun SleepTab(
                 ElevatedCard {
                     Text(
                         text = "昨晚夜醒 $nightWakeCount 次",
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.padding(Spacing.lg),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -999,7 +1012,7 @@ private fun DiaperTab(
                     onEdit = { onEdit(diaper) },
                     onDelete = { onDelete(diaper.id) },
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         diaper.photoPath?.let { PhotoPreviewCard(filePath = it, contentDescription = "大便照片") }
                         if (diaper.poopColor == PoopColor.RED || diaper.poopColor == PoopColor.WHITE) {
                             Text("异常颜色提醒：建议结合宝宝状态尽快观察或咨询医生。", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -1061,7 +1074,7 @@ private fun MedicalTab(
 private fun TemperatureTrendCard(records: List<MedicalEntity>) {
     val points = remember(records) { records.filter { it.temperatureC != null }.sortedBy { it.happenedAt }.map { it.happenedAt to (it.temperatureC ?: 0f) } }
     ElevatedCard {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.fillMaxWidth().padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("体温曲线", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             if (points.size < 2) {
                 Text("至少记录两次体温，才会在这里画出趋势。", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1136,10 +1149,10 @@ private fun ActivityListItem(
             .padding(vertical = 4.dp)
             .shadow(
                 elevation = 4.dp,
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(Spacing.sm),
                 spotColor = Color.Black.copy(alpha = 0.02f),
             ),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(Spacing.sm),
         color = MaterialTheme.colorScheme.surface,
     ) {
         Row(
@@ -1153,8 +1166,8 @@ private fun ActivityListItem(
                     )
                 }
                 .clickable { onEdit() }
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(Spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -1183,7 +1196,7 @@ private fun ActivityListItem(
                     )
                 }
                 if (content != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(Spacing.sm))
                     content()
                 }
                 Row(
@@ -1203,7 +1216,7 @@ private fun ActivityListItem(
 // ──────────────────────────────────────────────────────────────────────
 
 private fun recordTabContentPadding(contentPadding: PaddingValues): PaddingValues {
-    return PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = contentPadding.calculateBottomPadding() + 96.dp)
+    return PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.lg, bottom = contentPadding.calculateBottomPadding() + 96.dp)
 }
 
 @Composable
@@ -1214,7 +1227,7 @@ private fun RecordTabList(
     headerContent: LazyListScope.() -> Unit,
     itemContent: LazyListScope.() -> Unit,
 ) {
-    LazyColumn(contentPadding = recordTabContentPadding(contentPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(contentPadding = recordTabContentPadding(contentPadding), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
         headerContent()
         if (isEmpty) item { EmptyRecordCard(emptyText) } else itemContent()
     }
@@ -1223,7 +1236,7 @@ private fun RecordTabList(
 @Composable
 private fun HeroCard(title: String, summary: String) {
     ElevatedCard {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.fillMaxWidth().padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text(summary, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -1245,35 +1258,6 @@ private fun RecordActionRow(onOpenBatchRecord: () -> Unit, onOpenHandoverSummary
             ),
         ),
     )
-}
-
-@Composable
-fun EmptyRecordCard(text: String, modifier: Modifier = Modifier) {
-    GlassSurface(
-        modifier = modifier.fillMaxWidth(),
-        alpha = 0.58f,
-        shape = MaterialTheme.shapes.large,
-        accentColor = MaterialTheme.colorScheme.secondary,
-        shadowElevation = 10.dp,
-    ) {
-        Column(
-            modifier = Modifier.padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Today,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-            )
-            Text(
-                text = text,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
-    }
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -1448,3 +1432,4 @@ private fun Long.formatStopwatch(): String {
     val seconds = this % 60
     return if (hours > 0) "%02d:%02d:%02d".format(hours, minutes, seconds) else "%02d:%02d".format(minutes, seconds)
 }
+

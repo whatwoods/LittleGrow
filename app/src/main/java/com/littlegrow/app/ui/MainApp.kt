@@ -199,6 +199,7 @@ fun LittleGrowApp(
     val homeCaregiverFilter by viewModel.homeCaregiverFilter.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val launchState by viewModel.launchState.collectAsStateWithLifecycle()
+    val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     var showQuickRecordSheet by rememberSaveable { mutableStateOf(false) }
     var quickRecordInitialTab by rememberSaveable { mutableStateOf<RecordTab?>(null) }
     var showAddGrowthDialog by rememberSaveable { mutableStateOf(false) }
@@ -432,7 +433,9 @@ fun LittleGrowApp(
                     vaccines = vaccines,
                     caregivers = caregivers,
                     caregiverFilter = homeCaregiverFilter,
+                    refreshing = refreshing,
                     contentPadding = contentPadding,
+                    onRefresh = viewModel::refresh,
                     onCaregiverFilterChange = viewModel::setHomeCaregiverFilter,
                     onDismissGuide = viewModel::dismissMonthlyGuide,
                     onOpenRecords = { tab ->
@@ -479,7 +482,9 @@ fun LittleGrowApp(
                     breastfeedingTimer = breastfeedingTimer,
                     pendingQuickAction = pendingQuickAction,
                     feedingFormDefaults = feedingFormDefaults,
+                    refreshing = refreshing,
                     contentPadding = contentPadding,
+                    onRefresh = viewModel::refresh,
                     onSelectTab = viewModel::selectRecordTab,
                     onConsumeQuickAction = viewModel::consumePendingRecordQuickAction,
                     onStartBreastfeedingTimer = viewModel::startBreastfeedingTimer,
@@ -514,7 +519,9 @@ fun LittleGrowApp(
                     profile = profile,
                     growthRecords = growthRecords,
                     vaccines = vaccines,
+                    refreshing = refreshing,
                     contentPadding = contentPadding,
+                    onRefresh = viewModel::refresh,
                     onAddGrowth = viewModel::addGrowth,
                     onUpdateGrowth = viewModel::updateGrowth,
                     onDeleteGrowth = viewModel::deleteGrowth,
@@ -531,7 +538,9 @@ fun LittleGrowApp(
                     diapers = diapers,
                     growthRecords = growthRecords,
                     milestones = milestones,
+                    refreshing = refreshing,
                     contentPadding = contentPadding,
+                    onRefresh = viewModel::refresh,
                     onAddMilestone = viewModel::addMilestone,
                     onUpdateMilestone = viewModel::updateMilestone,
                     onDeleteMilestone = viewModel::deleteMilestone,
